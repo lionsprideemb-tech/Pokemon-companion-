@@ -1,0 +1,5 @@
+Journey Companion is a private fan-made tabletop campaign utility.
+
+Pokémon and related names are trademarks of their respective owners.
+This repository does not include an open-source software license.
+Do not treat the absence of a license as permission to redistribute or reuse the code.
