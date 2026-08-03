@@ -6715,6 +6715,205 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 })();
 </script>
 
+
+<style>
+/* Inline Navigation Fix
+   Replaces the floating navigation controls so they never cover app content.
+*/
+.jc2-universal-back,
+.jc2-universal-home{
+  display:none!important;
+}
+.jc2-inline-nav{
+  position:relative;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 14px;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:var(--paper);
+  box-shadow:0 5px 16px rgba(23,32,51,.07)
+}
+.jc2-inline-nav-left,
+.jc2-inline-nav-right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap
+}
+.jc2-inline-back,
+.jc2-inline-home{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:40px;
+  padding:8px 13px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--paper);
+  color:var(--navy);
+  font-weight:900;
+  cursor:pointer
+}
+.jc2-inline-home{
+  width:42px;
+  padding:8px
+}
+.jc2-inline-location{
+  color:var(--muted);
+  font-size:.78rem;
+  font-weight:800
+}
+@media(max-width:600px){
+  .jc2-inline-nav{align-items:flex-start}
+  .jc2-inline-location{display:none}
+}
+@media print{
+  .jc2-inline-nav{display:none!important}
+}
+</style>
+
+<script>
+/* Inline and deterministic Back Navigation
+   - Controls sit inside the page instead of floating over content.
+   - Tools pages always return to the main Tools screen.
+   - Detail pages return to their parent list.
+   - Other main pages return to Home.
+*/
+(function installInlineNavigationFix(){
+  function navigationLabel(){
+    if(state.view==='tools'){
+      const labels={
+        rules:'Rules',
+        inventory:'Inventory',
+        builder:'Pokémon Builder',
+        battleManager7:'Battle Manager',
+        builderSuite11:'Builder Suite',
+        v06Archetypes:'Archetype Library',
+        teaMaker:'Tea Maker',
+        databaseC:'Database Center',
+        operationsD:'Professor Operations',
+        worldE:'Kanto World'
+      };
+      return `Tools / ${labels[state.toolTab]||'Main'}`;
+    }
+    const labels={
+      trainer:'Trainer',
+      pokemon:'Pokémon',
+      pokedex8:'Pokédex',
+      travel9:'Travel',
+      items10:'Items',
+      professor5:'Professor',
+      campaign6:'Campaign',
+      journal:'Journal',
+      home:'Home'
+    };
+    return labels[state.view]||'Journey Companion';
+  }
+
+  function inlineNavigationHtml(){
+    if(state.view==='home' && !state.selectedPokemonId && !state.selectedDexKey && !state.selectedItemKey){
+      return '';
+    }
+    return `<div class="jc2-inline-nav">
+      <div class="jc2-inline-nav-left">
+        <button class="jc2-inline-back" id="jc2InlineBack" type="button">← Back</button>
+        <span class="jc2-inline-location">${esc(navigationLabel())}</span>
+      </div>
+      <div class="jc2-inline-nav-right">
+        <button class="jc2-inline-home" id="jc2InlineHome" type="button" title="Home" aria-label="Home">⌂</button>
+      </div>
+    </div>`;
+  }
+
+  function goInlineHome(){
+    state.view='home';
+    state.phaseF=state.phaseF||{};
+    state.phaseF.tab='home';
+    state.selectedPokemonId=null;
+    state.selectedDexKey=null;
+    state.selectedItemKey=null;
+    state.phaseF.commandOpen=false;
+    save();
+    render();
+  }
+
+  function goInlineBack(){
+    /* Close detail records before leaving their parent section. */
+    if(state.selectedPokemonId){
+      state.selectedPokemonId=null;
+      save();render();return;
+    }
+    if(state.selectedDexKey){
+      state.selectedDexKey=null;
+      save();render();return;
+    }
+    if(state.selectedItemKey){
+      state.selectedItemKey=null;
+      save();render();return;
+    }
+
+    /* Nested Tools pages return to the stable main Tools page. */
+    if(state.view==='tools'){
+      if(state.toolTab && state.toolTab!=='rules'){
+        state.toolTab='rules';
+        save();render();return;
+      }
+      goInlineHome();
+      return;
+    }
+
+    /* Nested Professor operations return to the Professor overview first. */
+    if(state.view==='professor5' && state.professorModeTab && state.professorModeTab!=='dashboard'){
+      state.professorModeTab='dashboard';
+      save();render();return;
+    }
+
+    /* Nested Campaign pages return to the Campaign overview first. */
+    if(state.view==='campaign6' && state.campaignManagerTab && state.campaignManagerTab!=='overview'){
+      state.campaignManagerTab='overview';
+      save();render();return;
+    }
+
+    /* Other primary sections return home. */
+    goInlineHome();
+  }
+
+  const previousViewInlineNav=view;
+  view=function(){
+    return inlineNavigationHtml()+previousViewInlineNav();
+  };
+
+  const previousBindInlineNav=bind;
+  bind=function(){
+    previousBindInlineNav();
+    document.getElementById('jc2InlineBack')?.addEventListener('click',goInlineBack);
+    document.getElementById('jc2InlineHome')?.addEventListener('click',goInlineHome);
+  };
+
+  /* Remove the old history stack so it cannot intercept or confuse Tools navigation. */
+  state.phaseF=state.phaseF||{};
+  state.phaseF.navHistory=[];
+
+  window.addEventListener('keydown',event=>{
+    if(event.altKey&&event.key==='ArrowLeft'){
+      event.preventDefault();
+      goInlineBack();
+    }
+  });
+
+  state.core=state.core||{};
+  state.core.navigationPatch='Inline Deterministic Navigation';
+  save();
+  render();
+})();
+</script>
+
 </body></html>`);
       win.document.close();win.print();
     });
@@ -6972,6 +7171,205 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 
   state.core = state.core || {};
   state.core.navigationPatch = 'Universal Back Navigation';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Inline Navigation Fix
+   Replaces the floating navigation controls so they never cover app content.
+*/
+.jc2-universal-back,
+.jc2-universal-home{
+  display:none!important;
+}
+.jc2-inline-nav{
+  position:relative;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 14px;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:var(--paper);
+  box-shadow:0 5px 16px rgba(23,32,51,.07)
+}
+.jc2-inline-nav-left,
+.jc2-inline-nav-right{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap
+}
+.jc2-inline-back,
+.jc2-inline-home{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:40px;
+  padding:8px 13px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--paper);
+  color:var(--navy);
+  font-weight:900;
+  cursor:pointer
+}
+.jc2-inline-home{
+  width:42px;
+  padding:8px
+}
+.jc2-inline-location{
+  color:var(--muted);
+  font-size:.78rem;
+  font-weight:800
+}
+@media(max-width:600px){
+  .jc2-inline-nav{align-items:flex-start}
+  .jc2-inline-location{display:none}
+}
+@media print{
+  .jc2-inline-nav{display:none!important}
+}
+</style>
+
+<script>
+/* Inline and deterministic Back Navigation
+   - Controls sit inside the page instead of floating over content.
+   - Tools pages always return to the main Tools screen.
+   - Detail pages return to their parent list.
+   - Other main pages return to Home.
+*/
+(function installInlineNavigationFix(){
+  function navigationLabel(){
+    if(state.view==='tools'){
+      const labels={
+        rules:'Rules',
+        inventory:'Inventory',
+        builder:'Pokémon Builder',
+        battleManager7:'Battle Manager',
+        builderSuite11:'Builder Suite',
+        v06Archetypes:'Archetype Library',
+        teaMaker:'Tea Maker',
+        databaseC:'Database Center',
+        operationsD:'Professor Operations',
+        worldE:'Kanto World'
+      };
+      return `Tools / ${labels[state.toolTab]||'Main'}`;
+    }
+    const labels={
+      trainer:'Trainer',
+      pokemon:'Pokémon',
+      pokedex8:'Pokédex',
+      travel9:'Travel',
+      items10:'Items',
+      professor5:'Professor',
+      campaign6:'Campaign',
+      journal:'Journal',
+      home:'Home'
+    };
+    return labels[state.view]||'Journey Companion';
+  }
+
+  function inlineNavigationHtml(){
+    if(state.view==='home' && !state.selectedPokemonId && !state.selectedDexKey && !state.selectedItemKey){
+      return '';
+    }
+    return `<div class="jc2-inline-nav">
+      <div class="jc2-inline-nav-left">
+        <button class="jc2-inline-back" id="jc2InlineBack" type="button">← Back</button>
+        <span class="jc2-inline-location">${esc(navigationLabel())}</span>
+      </div>
+      <div class="jc2-inline-nav-right">
+        <button class="jc2-inline-home" id="jc2InlineHome" type="button" title="Home" aria-label="Home">⌂</button>
+      </div>
+    </div>`;
+  }
+
+  function goInlineHome(){
+    state.view='home';
+    state.phaseF=state.phaseF||{};
+    state.phaseF.tab='home';
+    state.selectedPokemonId=null;
+    state.selectedDexKey=null;
+    state.selectedItemKey=null;
+    state.phaseF.commandOpen=false;
+    save();
+    render();
+  }
+
+  function goInlineBack(){
+    /* Close detail records before leaving their parent section. */
+    if(state.selectedPokemonId){
+      state.selectedPokemonId=null;
+      save();render();return;
+    }
+    if(state.selectedDexKey){
+      state.selectedDexKey=null;
+      save();render();return;
+    }
+    if(state.selectedItemKey){
+      state.selectedItemKey=null;
+      save();render();return;
+    }
+
+    /* Nested Tools pages return to the stable main Tools page. */
+    if(state.view==='tools'){
+      if(state.toolTab && state.toolTab!=='rules'){
+        state.toolTab='rules';
+        save();render();return;
+      }
+      goInlineHome();
+      return;
+    }
+
+    /* Nested Professor operations return to the Professor overview first. */
+    if(state.view==='professor5' && state.professorModeTab && state.professorModeTab!=='dashboard'){
+      state.professorModeTab='dashboard';
+      save();render();return;
+    }
+
+    /* Nested Campaign pages return to the Campaign overview first. */
+    if(state.view==='campaign6' && state.campaignManagerTab && state.campaignManagerTab!=='overview'){
+      state.campaignManagerTab='overview';
+      save();render();return;
+    }
+
+    /* Other primary sections return home. */
+    goInlineHome();
+  }
+
+  const previousViewInlineNav=view;
+  view=function(){
+    return inlineNavigationHtml()+previousViewInlineNav();
+  };
+
+  const previousBindInlineNav=bind;
+  bind=function(){
+    previousBindInlineNav();
+    document.getElementById('jc2InlineBack')?.addEventListener('click',goInlineBack);
+    document.getElementById('jc2InlineHome')?.addEventListener('click',goInlineHome);
+  };
+
+  /* Remove the old history stack so it cannot intercept or confuse Tools navigation. */
+  state.phaseF=state.phaseF||{};
+  state.phaseF.navHistory=[];
+
+  window.addEventListener('keydown',event=>{
+    if(event.altKey&&event.key==='ArrowLeft'){
+      event.preventDefault();
+      goInlineBack();
+    }
+  });
+
+  state.core=state.core||{};
+  state.core.navigationPatch='Inline Deterministic Navigation';
   save();
   render();
 })();

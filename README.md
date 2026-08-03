@@ -1,26 +1,20 @@
-# Journey Companion v2 — Final Back Navigation Build
+# Journey Companion v2 — Inline Navigation Fix
 
-This finalized GitHub Pages build adds universal internal navigation to the complete Journey Companion v2 application.
+This finalized GitHub Pages build replaces the floating Back and Home controls with an inline navigation bar that does not cover app content.
 
-## Navigation fix
+## Navigation behavior
 
-- A visible **Back** button appears on every page.
-- A separate **Home** button is always available.
-- The app remembers up to 80 internal navigation states.
-- Back navigation restores nested pages and tabs, including:
-  - Archetype Library
-  - Database Center
-  - Professor Operations
-  - Interactive Kanto World
-  - Battle Manager
-  - Pokédex entries
-  - Item details
-  - Pokémon details
-- `Alt + Left Arrow` also goes back.
-- Mobile controls appear above the bottom navigation bar.
+- The navigation bar appears inside each page.
+- It never floats over forms, tabs, or buttons.
+- From an Archetype or other Tools page, **Back** returns to the main Tools page.
+- From the main Tools page, **Back** returns Home.
+- Pokémon, Pokédex, and Item detail pages return to their parent lists first.
+- Professor and Campaign subpages return to their overview pages first.
+- The Home button always returns directly to the final dashboard.
+- `Alt + Left Arrow` uses the same reliable Back behavior.
 
-## Publish with GitHub Pages
+## GitHub Pages
 
-Upload `index.html`, `.nojekyll`, and `README.md` to your repository root. Then enable GitHub Pages from `main` and `/ (root)`.
+Upload `index.html`, `.nojekyll`, and `README.md` to the repository root, then publish from `main` and `/ (root)`.
 
-Export a complete backup before replacing your current deployed build.
+Export a complete campaign backup before replacing the currently deployed build.
