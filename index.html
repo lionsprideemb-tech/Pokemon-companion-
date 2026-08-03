@@ -6503,6 +6503,218 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 })();
 </script>
 
+
+<style>
+/* Universal Back Navigation */
+.jc2-universal-back{
+  position:fixed;
+  left:14px;
+  top:74px;
+  z-index:230;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:42px;
+  padding:9px 13px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  color:var(--navy);
+  font-weight:900;
+  box-shadow:0 8px 22px rgba(23,32,51,.14);
+  cursor:pointer;
+  backdrop-filter:blur(14px)
+}
+.jc2-universal-back:hover{transform:translateY(-1px)}
+.jc2-universal-back:disabled{
+  opacity:.48;
+  cursor:not-allowed;
+  transform:none
+}
+.jc2-universal-back .arrow{font-size:1.12rem}
+.jc2-universal-home{
+  position:fixed;
+  left:14px;
+  top:124px;
+  z-index:229;
+  width:42px;
+  height:42px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  color:var(--navy);
+  font-size:1.05rem;
+  box-shadow:0 8px 22px rgba(23,32,51,.12);
+  cursor:pointer
+}
+@media(max-width:720px){
+  .jc2-universal-back{
+    top:auto;
+    bottom:84px;
+    left:12px;
+    min-height:44px;
+    padding:9px 12px
+  }
+  .jc2-universal-home{
+    top:auto;
+    bottom:84px;
+    left:128px;
+    width:44px;
+    height:44px
+  }
+}
+@media print{
+  .jc2-universal-back,.jc2-universal-home{display:none!important}
+}
+</style>
+
+<script>
+/* Universal internal navigation history.
+   Every rendered page receives a Back button and a Home fallback.
+*/
+(function installUniversalBackNavigation(){
+  state.phaseF = state.phaseF || {};
+  state.phaseF.navHistory = Array.isArray(state.phaseF.navHistory) ? state.phaseF.navHistory : [];
+
+  let suppressHistory = false;
+
+  function currentNavState(){
+    return {
+      view: state.view || 'home',
+      toolTab: state.toolTab || '',
+      trainerTab: state.trainerTab || '',
+      professorModeTab: state.professorModeTab || '',
+      campaignManagerTab: state.campaignManagerTab || '',
+      battleManagerTab: state.battleManagerTab || '',
+      pokedexTab: state.pokedexTab || '',
+      travelTab: state.travelTab || '',
+      itemTab: state.itemTab || '',
+      builderSuiteTab: state.builderSuiteTab || '',
+      finalTab: state.finalTab || '',
+      phaseCtab: state.phaseC?.tab || '',
+      phaseDtab: state.phaseD?.tab || '',
+      phaseEtab: state.phaseE?.tab || '',
+      phaseFtab: state.phaseF?.tab || '',
+      selectedPokemonId: state.selectedPokemonId || null,
+      selectedDexKey: state.selectedDexKey || null,
+      selectedItemKey: state.selectedItemKey || null,
+      selectedBattleId: state.selectedBattleId || null
+    };
+  }
+
+  function navKey(nav){
+    return JSON.stringify(nav);
+  }
+
+  function restoreNav(nav){
+    suppressHistory = true;
+
+    state.view = nav.view || 'home';
+    state.toolTab = nav.toolTab || '';
+    state.trainerTab = nav.trainerTab || '';
+    state.professorModeTab = nav.professorModeTab || '';
+    state.campaignManagerTab = nav.campaignManagerTab || '';
+    state.battleManagerTab = nav.battleManagerTab || '';
+    state.pokedexTab = nav.pokedexTab || '';
+    state.travelTab = nav.travelTab || '';
+    state.itemTab = nav.itemTab || '';
+    state.builderSuiteTab = nav.builderSuiteTab || '';
+    state.finalTab = nav.finalTab || '';
+
+    state.phaseC = state.phaseC || {};
+    state.phaseD = state.phaseD || {};
+    state.phaseE = state.phaseE || {};
+    state.phaseF = state.phaseF || {};
+
+    state.phaseC.tab = nav.phaseCtab || state.phaseC.tab || 'overview';
+    state.phaseD.tab = nav.phaseDtab || state.phaseD.tab || 'dashboard';
+    state.phaseE.tab = nav.phaseEtab || state.phaseE.tab || 'map';
+    state.phaseF.tab = nav.phaseFtab || state.phaseF.tab || 'home';
+
+    state.selectedPokemonId = nav.selectedPokemonId || null;
+    state.selectedDexKey = nav.selectedDexKey || null;
+    state.selectedItemKey = nav.selectedItemKey || null;
+    state.selectedBattleId = nav.selectedBattleId || state.selectedBattleId || null;
+
+    save();
+    originalRenderUniversalBack();
+    suppressHistory = false;
+  }
+
+  function goBack(){
+    const history = state.phaseF.navHistory || [];
+    if(!history.length){
+      goHome();
+      return;
+    }
+    const previous = history.pop();
+    restoreNav(previous);
+  }
+
+  function goHome(){
+    suppressHistory = true;
+    state.view = 'home';
+    state.phaseF = state.phaseF || {};
+    state.phaseF.tab = 'home';
+    state.selectedPokemonId = null;
+    state.selectedDexKey = null;
+    state.selectedItemKey = null;
+    save();
+    originalRenderUniversalBack();
+    suppressHistory = false;
+  }
+
+  const previousShellUniversalBack = shell;
+  shell = function(){
+    const base = previousShellUniversalBack();
+    const canGoBack = (state.phaseF?.navHistory || []).length > 0 || state.view !== 'home';
+    return base + `
+      <button class="jc2-universal-back" id="jc2UniversalBack" ${canGoBack ? '' : 'disabled'} aria-label="Go back">
+        <span class="arrow">←</span><span>Back</span>
+      </button>
+      <button class="jc2-universal-home" id="jc2UniversalHome" aria-label="Go to home" title="Home">⌂</button>`;
+  };
+
+  const originalRenderUniversalBack = render;
+  let lastNav = currentNavState();
+
+  render = function(){
+    const nextNav = currentNavState();
+
+    if(!suppressHistory && navKey(nextNav) !== navKey(lastNav)){
+      const history = state.phaseF.navHistory || [];
+      if(!history.length || navKey(history[history.length - 1]) !== navKey(lastNav)){
+        history.push(lastNav);
+      }
+      state.phaseF.navHistory = history.slice(-80);
+    }
+
+    lastNav = nextNav;
+    originalRenderUniversalBack();
+  };
+
+  const previousBindUniversalBack = bind;
+  bind = function(){
+    previousBindUniversalBack();
+
+    document.getElementById('jc2UniversalBack')?.addEventListener('click', goBack);
+    document.getElementById('jc2UniversalHome')?.addEventListener('click', goHome);
+  };
+
+  window.addEventListener('keydown', event => {
+    if(event.altKey && event.key === 'ArrowLeft'){
+      event.preventDefault();
+      goBack();
+    }
+  });
+
+  state.core = state.core || {};
+  state.core.navigationPatch = 'Universal Back Navigation';
+  save();
+  render();
+})();
+</script>
+
 </body></html>`);
       win.document.close();win.print();
     });
@@ -6550,6 +6762,218 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
   state.core.releaseChannel = "GitHub Pages";
   state.core.finalizedAt = new Date().toISOString();
   save();
+})();
+</script>
+
+
+<style>
+/* Universal Back Navigation */
+.jc2-universal-back{
+  position:fixed;
+  left:14px;
+  top:74px;
+  z-index:230;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  min-height:42px;
+  padding:9px 13px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  color:var(--navy);
+  font-weight:900;
+  box-shadow:0 8px 22px rgba(23,32,51,.14);
+  cursor:pointer;
+  backdrop-filter:blur(14px)
+}
+.jc2-universal-back:hover{transform:translateY(-1px)}
+.jc2-universal-back:disabled{
+  opacity:.48;
+  cursor:not-allowed;
+  transform:none
+}
+.jc2-universal-back .arrow{font-size:1.12rem}
+.jc2-universal-home{
+  position:fixed;
+  left:14px;
+  top:124px;
+  z-index:229;
+  width:42px;
+  height:42px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  color:var(--navy);
+  font-size:1.05rem;
+  box-shadow:0 8px 22px rgba(23,32,51,.12);
+  cursor:pointer
+}
+@media(max-width:720px){
+  .jc2-universal-back{
+    top:auto;
+    bottom:84px;
+    left:12px;
+    min-height:44px;
+    padding:9px 12px
+  }
+  .jc2-universal-home{
+    top:auto;
+    bottom:84px;
+    left:128px;
+    width:44px;
+    height:44px
+  }
+}
+@media print{
+  .jc2-universal-back,.jc2-universal-home{display:none!important}
+}
+</style>
+
+<script>
+/* Universal internal navigation history.
+   Every rendered page receives a Back button and a Home fallback.
+*/
+(function installUniversalBackNavigation(){
+  state.phaseF = state.phaseF || {};
+  state.phaseF.navHistory = Array.isArray(state.phaseF.navHistory) ? state.phaseF.navHistory : [];
+
+  let suppressHistory = false;
+
+  function currentNavState(){
+    return {
+      view: state.view || 'home',
+      toolTab: state.toolTab || '',
+      trainerTab: state.trainerTab || '',
+      professorModeTab: state.professorModeTab || '',
+      campaignManagerTab: state.campaignManagerTab || '',
+      battleManagerTab: state.battleManagerTab || '',
+      pokedexTab: state.pokedexTab || '',
+      travelTab: state.travelTab || '',
+      itemTab: state.itemTab || '',
+      builderSuiteTab: state.builderSuiteTab || '',
+      finalTab: state.finalTab || '',
+      phaseCtab: state.phaseC?.tab || '',
+      phaseDtab: state.phaseD?.tab || '',
+      phaseEtab: state.phaseE?.tab || '',
+      phaseFtab: state.phaseF?.tab || '',
+      selectedPokemonId: state.selectedPokemonId || null,
+      selectedDexKey: state.selectedDexKey || null,
+      selectedItemKey: state.selectedItemKey || null,
+      selectedBattleId: state.selectedBattleId || null
+    };
+  }
+
+  function navKey(nav){
+    return JSON.stringify(nav);
+  }
+
+  function restoreNav(nav){
+    suppressHistory = true;
+
+    state.view = nav.view || 'home';
+    state.toolTab = nav.toolTab || '';
+    state.trainerTab = nav.trainerTab || '';
+    state.professorModeTab = nav.professorModeTab || '';
+    state.campaignManagerTab = nav.campaignManagerTab || '';
+    state.battleManagerTab = nav.battleManagerTab || '';
+    state.pokedexTab = nav.pokedexTab || '';
+    state.travelTab = nav.travelTab || '';
+    state.itemTab = nav.itemTab || '';
+    state.builderSuiteTab = nav.builderSuiteTab || '';
+    state.finalTab = nav.finalTab || '';
+
+    state.phaseC = state.phaseC || {};
+    state.phaseD = state.phaseD || {};
+    state.phaseE = state.phaseE || {};
+    state.phaseF = state.phaseF || {};
+
+    state.phaseC.tab = nav.phaseCtab || state.phaseC.tab || 'overview';
+    state.phaseD.tab = nav.phaseDtab || state.phaseD.tab || 'dashboard';
+    state.phaseE.tab = nav.phaseEtab || state.phaseE.tab || 'map';
+    state.phaseF.tab = nav.phaseFtab || state.phaseF.tab || 'home';
+
+    state.selectedPokemonId = nav.selectedPokemonId || null;
+    state.selectedDexKey = nav.selectedDexKey || null;
+    state.selectedItemKey = nav.selectedItemKey || null;
+    state.selectedBattleId = nav.selectedBattleId || state.selectedBattleId || null;
+
+    save();
+    originalRenderUniversalBack();
+    suppressHistory = false;
+  }
+
+  function goBack(){
+    const history = state.phaseF.navHistory || [];
+    if(!history.length){
+      goHome();
+      return;
+    }
+    const previous = history.pop();
+    restoreNav(previous);
+  }
+
+  function goHome(){
+    suppressHistory = true;
+    state.view = 'home';
+    state.phaseF = state.phaseF || {};
+    state.phaseF.tab = 'home';
+    state.selectedPokemonId = null;
+    state.selectedDexKey = null;
+    state.selectedItemKey = null;
+    save();
+    originalRenderUniversalBack();
+    suppressHistory = false;
+  }
+
+  const previousShellUniversalBack = shell;
+  shell = function(){
+    const base = previousShellUniversalBack();
+    const canGoBack = (state.phaseF?.navHistory || []).length > 0 || state.view !== 'home';
+    return base + `
+      <button class="jc2-universal-back" id="jc2UniversalBack" ${canGoBack ? '' : 'disabled'} aria-label="Go back">
+        <span class="arrow">←</span><span>Back</span>
+      </button>
+      <button class="jc2-universal-home" id="jc2UniversalHome" aria-label="Go to home" title="Home">⌂</button>`;
+  };
+
+  const originalRenderUniversalBack = render;
+  let lastNav = currentNavState();
+
+  render = function(){
+    const nextNav = currentNavState();
+
+    if(!suppressHistory && navKey(nextNav) !== navKey(lastNav)){
+      const history = state.phaseF.navHistory || [];
+      if(!history.length || navKey(history[history.length - 1]) !== navKey(lastNav)){
+        history.push(lastNav);
+      }
+      state.phaseF.navHistory = history.slice(-80);
+    }
+
+    lastNav = nextNav;
+    originalRenderUniversalBack();
+  };
+
+  const previousBindUniversalBack = bind;
+  bind = function(){
+    previousBindUniversalBack();
+
+    document.getElementById('jc2UniversalBack')?.addEventListener('click', goBack);
+    document.getElementById('jc2UniversalHome')?.addEventListener('click', goHome);
+  };
+
+  window.addEventListener('keydown', event => {
+    if(event.altKey && event.key === 'ArrowLeft'){
+      event.preventDefault();
+      goBack();
+    }
+  });
+
+  state.core = state.core || {};
+  state.core.navigationPatch = 'Universal Back Navigation';
+  save();
+  render();
 })();
 </script>
 

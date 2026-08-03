@@ -1,48 +1,26 @@
-# Journey Companion v2 — Final GitHub Release
+# Journey Companion v2 — Final Back Navigation Build
 
-Journey Companion is a standalone offline companion application for an Unbeatable Pokémon tabletop campaign.
+This finalized GitHub Pages build adds universal internal navigation to the complete Journey Companion v2 application.
 
-## Final release features
+## Navigation fix
 
-- No login required
-- Offline browser storage
-- GitHub Pages ready
-- Complete Trainer and Pokémon management
-- Expanded Pokémon species and form database
-- Official v0.6 Moves, Abilities, archetypes, conditions, Weather, and Terrain
-- Custom Tea Maker archetype and Tea Workshop
-- Corrected item and PokéMart database
-- Interactive Pokédex
-- Professor Mode
-- NPC, quest, faction, session, and encounter management
-- Battle Manager
-- Travel and camping system
-- Interactive Kanto world map
-- Route travel and location tracking
-- Searchable Professor Handbook
-- Global command search
-- Light, dark, and system themes
-- Accessibility options
-- Complete backup, restore, and export tools
-- Custom-content Builder Suite
+- A visible **Back** button appears on every page.
+- A separate **Home** button is always available.
+- The app remembers up to 80 internal navigation states.
+- Back navigation restores nested pages and tabs, including:
+  - Archetype Library
+  - Database Center
+  - Professor Operations
+  - Interactive Kanto World
+  - Battle Manager
+  - Pokédex entries
+  - Item details
+  - Pokémon details
+- `Alt + Left Arrow` also goes back.
+- Mobile controls appear above the bottom navigation bar.
 
 ## Publish with GitHub Pages
 
-1. Create or open a GitHub repository.
-2. Upload these files to the repository root:
-   - `index.html`
-   - `.nojekyll`
-   - `README.md`
-   - `LICENSE-NOTICE.txt`
-3. Open **Settings → Pages**.
-4. Under **Build and deployment**, select **Deploy from a branch**.
-5. Select the `main` branch and `/ (root)`.
-6. Save and wait for GitHub Pages to publish the site.
+Upload `index.html`, `.nojekyll`, and `README.md` to your repository root. Then enable GitHub Pages from `main` and `/ (root)`.
 
-## Important data note
-
-Campaign data is stored locally in the browser on each device. Export a complete backup before clearing browser data, switching browsers, or changing devices.
-
-## Release
-
-**Journey Companion v2.0.0 — Final GitHub Release**
+Export a complete backup before replacing your current deployed build.
