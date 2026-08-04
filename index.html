@@ -6669,10 +6669,7 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
     const base = previousShellUniversalBack();
     const canGoBack = (state.phaseF?.navHistory || []).length > 0 || state.view !== 'home';
     return base + `
-      <button class="jc2-universal-back" id="jc2UniversalBack" ${canGoBack ? '' : 'disabled'} aria-label="Go back">
-        <span class="arrow">←</span><span>Back</span>
-      </button>
-      <button class="jc2-universal-home" id="jc2UniversalHome" aria-label="Go to home" title="Home">⌂</button>`;
+      `;
   };
 
   const originalRenderUniversalBack = render;
@@ -7818,6 +7815,1283 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 
   state.core=state.core||{};
   state.core.abilityPickerPatch='Searchable Ability Dropdown';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* ==========================================================
+   Delta Lab, Solar Nexus, and Navigation Cleanup
+   ========================================================== */
+
+/* Guarantee that legacy floating controls never appear. */
+.jc2-universal-back,
+.jc2-universal-home,
+#jc2UniversalBack,
+#jc2UniversalHome{
+  display:none!important;
+}
+
+/* Keep one clear navigation bar only. */
+.jc2-inline-nav{
+  position:relative!important;
+  inset:auto!important;
+  margin:0 0 14px!important;
+}
+body > .jc2-inline-nav{display:none!important}
+
+.delta-tabs{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(120px,1fr));
+  gap:6px;
+  padding:5px;
+  margin:14px 0;
+  border-radius:16px;
+  background:#e8edf3;
+  overflow-x:auto
+}
+.delta-tabs button{
+  border:0;
+  border-radius:11px;
+  padding:10px;
+  background:transparent;
+  color:var(--muted);
+  font-weight:900;
+  white-space:nowrap
+}
+.delta-tabs button.active{
+  background:var(--paper);
+  color:var(--navy);
+  box-shadow:0 4px 12px rgba(23,32,51,.08)
+}
+.delta-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px
+}
+.delta-card{border-left:5px solid #8a4fb3}
+.delta-stat-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px
+}
+.delta-stat{
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#f5f7fa
+}
+.delta-stat label{
+  display:block;
+  font-size:.72rem;
+  color:var(--muted);
+  font-weight:850;
+  margin-bottom:5px
+}
+.delta-pack-preview{
+  max-height:360px;
+  overflow:auto;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#111923;
+  color:#dce8f5;
+  white-space:pre-wrap;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.78rem
+}
+.delta-import-status{
+  padding:11px;
+  border-radius:13px;
+  border:1px solid var(--line);
+  background:#f5f7fa
+}
+.solar-nexus-badge{
+  display:inline-flex;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#fff1c9;
+  color:#7a5200;
+  font-weight:900;
+  font-size:.76rem
+}
+@media(max-width:760px){
+  .delta-grid{grid-template-columns:1fr}
+  .delta-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .delta-tabs{grid-template-columns:repeat(4,120px)}
+}
+</style>
+
+<script>
+/* ==========================================================
+   DELTA LAB + SOLAR NEXUS + CLEANUP
+   ========================================================== */
+(function installDeltaLabAndCleanup(){
+  const DELTA_PACK_FORMAT='journey-companion-delta-pokemon';
+  const DELTA_PACK_VERSION=1;
+
+  state.deltaLab=state.deltaLab||{
+    tab:'builder',
+    draft:null,
+    lastExport:null,
+    lastImport:null
+  };
+
+  const SOLAR_NEXUS={
+    name:'Solar Nexus',
+    effect:'This Pokémon is always treated as though Harsh Sunlight is active for itself only. This does not change battlefield weather. Sun-dependent Moves, Abilities, healing, charging, and other effects treat the user as being under Harsh Sunlight. Effects that suppress Abilities can suppress Solar Nexus.',
+    notes:'Signature Ability. Personal sunlight affects only the user and does not activate sunlight effects for allies or replace the battlefield weather.'
+  };
+
+  function deltaId(prefix='delta'){
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function ensureSolarNexus(){
+    state.contentLibrary=state.contentLibrary||[];
+    const exists=state.contentLibrary.some(x=>
+      x.type==='abilities'&&!x.deleted&&
+      String(x.data?.name||'').toLowerCase()==='solar nexus'
+    );
+    if(!exists){
+      state.contentLibrary.push({
+        id:deltaId('content'),
+        campaignId:state.activeCampaignId,
+        type:'abilities',
+        data:{...SOLAR_NEXUS,category:'Signature Ability'},
+        createdAt:new Date().toISOString(),
+        archived:false,
+        deleted:false
+      });
+    }
+  }
+
+  function blankDeltaDraft(){
+    return {
+      id:deltaId('deltaSpecies'),
+      baseSpecies:'',
+      name:'',
+      category:'Delta Pokémon',
+      types:['Normal'],
+      rank:1,
+      evolution:'',
+      size:'',
+      movement:'',
+      eggCycle:'',
+      eggGroups:'',
+      genderRatio:'',
+      abilities:['Solar Nexus'],
+      hiddenAbility:'',
+      stats:{
+        HP:'d6',
+        Attack:'d6',
+        Defense:'d6',
+        'Special Attack':'d6',
+        'Special Defense':'d6',
+        Speed:'d6'
+      },
+      moveOverrides:[],
+      lore:'',
+      appearance:'',
+      habitat:'',
+      notes:'',
+      createdAt:new Date().toISOString()
+    };
+  }
+
+  function deltaDraft(){
+    state.deltaLab.draft=state.deltaLab.draft||blankDeltaDraft();
+    return state.deltaLab.draft;
+  }
+
+  function allDeltaRecords(){
+    return (state.contentLibrary||[])
+      .filter(x=>x.type==='deltaPokemon'&&!x.deleted&&!x.archived)
+      .map(x=>x.data);
+  }
+
+  function deltaAbilityOptions(selected=''){
+    const names=new Set(['Solar Nexus']);
+    if(typeof allAbilityNames==='function')allAbilityNames().forEach(x=>names.add(x));
+    (state.contentLibrary||[])
+      .filter(x=>x.type==='abilities'&&!x.deleted&&!x.archived)
+      .forEach(x=>names.add(x.data?.name));
+    return [...names].filter(Boolean).sort()
+      .map(x=>`<option value="${esc(x)}" ${selected===x?'selected':''}>${esc(x)}</option>`)
+      .join('');
+  }
+
+  function deltaTypeOptions(selected=''){
+    return TYPES.map(t=>`<option value="${t}" ${selected===t?'selected':''}>${t}</option>`).join('');
+  }
+
+  function deltaLabView(){
+    const tab=state.deltaLab.tab||'builder';
+    return `<section class="hero compact">
+      <span class="badge professor">Delta Lab</span>
+      <h1>Delta Pokémon Creator</h1>
+      <p>Create custom Delta species, export portable files, and import them directly into Journey Companion.</p>
+    </section>
+    <div class="delta-tabs">
+      ${[
+        ['builder','Create Delta'],['library','Delta Library'],
+        ['export','Export File'],['import','Import File']
+      ].map(([k,l])=>`<button data-delta-tab="${k}" class="${tab===k?'active':''}">${l}</button>`).join('')}
+    </div>
+    ${tab==='library'?deltaLibraryView():
+      tab==='export'?deltaExportView():
+      tab==='import'?deltaImportView():
+      deltaBuilderView()}`;
+  }
+
+  function deltaBuilderView(){
+    const d=deltaDraft();
+    return `<form id="deltaPokemonForm" class="card form delta-card">
+      <div class="stat">
+        <div><span class="solar-nexus-badge">Solar Nexus Included</span><h2 style="margin:8px 0">Build a Delta Pokémon</h2></div>
+        <button type="button" class="btn secondary" id="resetDeltaDraft">Reset</button>
+      </div>
+
+      <div class="grid two">
+        ${field('Base species','baseSpecies',d.baseSpecies,'text','required')}
+        ${field('Delta name','name',d.name,'text','required')}
+      </div>
+
+      <div class="grid two">
+        <div class="field"><label>Primary Type</label><select name="type1">${deltaTypeOptions(d.types?.[0]||'Normal')}</select></div>
+        <div class="field"><label>Secondary Type</label><select name="type2"><option value="">None</option>${deltaTypeOptions(d.types?.[1]||'')}</select></div>
+      </div>
+
+      <div class="grid two">
+        ${field('Category','category',d.category)}
+        ${field('Suggested starting Rank','rank',d.rank,'number','min="1" max="10"')}
+      </div>
+
+      <div class="grid two">
+        ${field('Evolution','evolution',d.evolution)}
+        ${field('Size','size',d.size)}
+      </div>
+
+      <div class="grid two">
+        ${field('Movement','movement',d.movement)}
+        ${field('Gender ratio','genderRatio',d.genderRatio)}
+      </div>
+
+      <div class="grid two">
+        ${field('Egg cycle','eggCycle',d.eggCycle)}
+        ${field('Egg groups','eggGroups',d.eggGroups)}
+      </div>
+
+      <section class="pd-form-section">
+        <h3>Base Stats</h3>
+        <div class="delta-stat-grid">
+          ${Object.entries(d.stats||{}).map(([stat,value])=>`
+            <div class="delta-stat">
+              <label>${esc(stat)}</label>
+              <select name="stat_${esc(stat)}">${['d4','d6','d8','d10','d12'].map(x=>`<option ${value===x?'selected':''}>${x}</option>`).join('')}</select>
+            </div>`).join('')}
+        </div>
+      </section>
+
+      <section class="pd-form-section">
+        <h3>Abilities</h3>
+        <div class="grid two">
+          <div class="field"><label>Ability 1</label><select name="ability1">${deltaAbilityOptions(d.abilities?.[0]||'Solar Nexus')}</select></div>
+          <div class="field"><label>Ability 2</label><select name="ability2"><option value="">None</option>${deltaAbilityOptions(d.abilities?.[1]||'')}</select></div>
+        </div>
+        <div class="field"><label>Hidden Ability</label><select name="hiddenAbility"><option value="">None</option>${deltaAbilityOptions(d.hiddenAbility||'')}</select></div>
+      </section>
+
+      ${textarea('Appearance changes','appearance',d.appearance)}
+      ${textarea('Lore and origin','lore',d.lore)}
+      ${textarea('Habitat and encounter notes','habitat',d.habitat)}
+      ${textarea('Move changes or special Move access','moveOverridesText',(d.moveOverrides||[]).join('\n'))}
+      ${textarea('Professor notes','notes',d.notes)}
+
+      <div class="grid two">
+        <button class="btn primary">Save Delta Pokémon</button>
+        <button type="button" class="btn secondary" id="saveAndExportDelta">Save & Export File</button>
+      </div>
+    </form>`;
+  }
+
+  function deltaLibraryView(){
+    const rows=allDeltaRecords();
+    return `<div class="section-title"><h2>Delta Pokémon Library</h2><span class="badge professor">${rows.length}</span></div>
+    <div class="delta-grid">${rows.map(d=>`
+      <section class="card delta-card">
+        <div class="stat">
+          <div><strong>${esc(d.name)}</strong><div class="muted">Delta ${esc(d.baseSpecies)} • ${esc((d.types||[]).join(' / '))}</div></div>
+          <span class="tag">Rank ${Number(d.rank||1)}</span>
+        </div>
+        <p class="pre">${esc(d.appearance||d.lore||'No description entered.')}</p>
+        <p class="small"><strong>Abilities:</strong> ${esc([...(d.abilities||[]),d.hiddenAbility].filter(Boolean).join(', ')||'None')}</p>
+        <div class="grid two">
+          <button class="btn secondary" data-edit-delta="${d.id}">Edit</button>
+          <button class="btn secondary" data-export-delta="${d.id}">Export</button>
+          <button class="btn primary" data-create-delta-pokemon="${d.id}">Create Pokémon</button>
+          <button class="btn danger" data-delete-delta="${d.id}">Delete</button>
+        </div>
+      </section>`).join('')||empty('No Delta Pokémon have been created yet.')}</div>`;
+  }
+
+  function buildDeltaPack(deltas){
+    return {
+      format:DELTA_PACK_FORMAT,
+      version:DELTA_PACK_VERSION,
+      app:'Journey Companion v2',
+      exportedAt:new Date().toISOString(),
+      abilities:[SOLAR_NEXUS],
+      deltaPokemon:deltas
+    };
+  }
+
+  function deltaExportView(){
+    const rows=allDeltaRecords();
+    const pack=buildDeltaPack(rows);
+    return `<section class="card delta-card">
+      <h2>Export Delta Pack</h2>
+      <p class="muted">This JSON file can be imported directly into another copy of Journey Companion.</p>
+      <div class="jc2-summary section-gap">
+        <div><span>Delta Species</span><strong>${rows.length}</strong></div>
+        <div><span>Abilities Included</span><strong>1</strong></div>
+        <div><span>Format Version</span><strong>${DELTA_PACK_VERSION}</strong></div>
+        <div><span>Portable</span><strong>Yes</strong></div>
+      </div>
+      <button class="btn primary full section-gap" id="exportAllDelta">Download Delta Pack</button>
+      <pre class="delta-pack-preview section-gap">${esc(JSON.stringify(pack,null,2))}</pre>
+    </section>`;
+  }
+
+  function deltaImportView(){
+    return `<section class="card delta-card">
+      <h2>Import Delta Pokémon File</h2>
+      <p class="muted">Choose a Journey Companion Delta Pack JSON file. The app validates the format before importing it.</p>
+      <label class="btn primary file-label">Choose Delta Pack
+        <input id="importDeltaPack" type="file" accept="application/json,.json">
+      </label>
+      <div id="deltaImportStatus" class="delta-import-status section-gap">
+        ${state.deltaLab.lastImport
+          ? `<strong>Last import:</strong> ${esc(state.deltaLab.lastImport)}`
+          : 'No Delta Pack imported in this session.'}
+      </div>
+    </section>`;
+  }
+
+  function deltaFromForm(form){
+    const fd=new FormData(form);
+    const existing=deltaDraft();
+    const stats={};
+    ['HP','Attack','Defense','Special Attack','Special Defense','Speed']
+      .forEach(s=>stats[s]=String(fd.get(`stat_${s}`)||'d6'));
+
+    return {
+      ...existing,
+      id:existing.id||deltaId('deltaSpecies'),
+      baseSpecies:String(fd.get('baseSpecies')||'').trim(),
+      name:String(fd.get('name')||'').trim(),
+      category:String(fd.get('category')||'Delta Pokémon').trim(),
+      types:[String(fd.get('type1')||'Normal'),String(fd.get('type2')||'')].filter(Boolean),
+      rank:Math.max(1,Math.min(10,Number(fd.get('rank')||1))),
+      evolution:String(fd.get('evolution')||'').trim(),
+      size:String(fd.get('size')||'').trim(),
+      movement:String(fd.get('movement')||'').trim(),
+      genderRatio:String(fd.get('genderRatio')||'').trim(),
+      eggCycle:String(fd.get('eggCycle')||'').trim(),
+      eggGroups:String(fd.get('eggGroups')||'').trim(),
+      abilities:[String(fd.get('ability1')||'').trim(),String(fd.get('ability2')||'').trim()].filter(Boolean),
+      hiddenAbility:String(fd.get('hiddenAbility')||'').trim(),
+      stats,
+      appearance:String(fd.get('appearance')||'').trim(),
+      lore:String(fd.get('lore')||'').trim(),
+      habitat:String(fd.get('habitat')||'').trim(),
+      moveOverrides:String(fd.get('moveOverridesText')||'')
+        .split('\n').map(x=>x.trim()).filter(Boolean),
+      notes:String(fd.get('notes')||'').trim(),
+      updatedAt:new Date().toISOString()
+    };
+  }
+
+  function saveDeltaRecord(delta){
+    state.contentLibrary=state.contentLibrary||[];
+    const found=state.contentLibrary.find(x=>x.type==='deltaPokemon'&&x.data?.id===delta.id);
+    if(found){
+      found.data=delta;
+      found.updatedAt=new Date().toISOString();
+    }else{
+      state.contentLibrary.push({
+        id:deltaId('content'),
+        campaignId:state.activeCampaignId,
+        type:'deltaPokemon',
+        data:delta,
+        createdAt:new Date().toISOString(),
+        archived:false,
+        deleted:false
+      });
+    }
+    state.deltaLab.draft=delta;
+    if(typeof professorLogEntry==='function'){
+      professorLogEntry(`Saved Delta Pokémon: ${delta.name}`,`Delta ${delta.baseSpecies} • ${delta.types.join(' / ')}`);
+    }
+  }
+
+  function exportDeltaFile(deltas,filename='journey-companion-delta-pack.json'){
+    const pack=buildDeltaPack(deltas);
+    downloadJson(pack,filename);
+    state.deltaLab.lastExport=new Date().toISOString();
+  }
+
+  function validateDeltaPack(pack){
+    if(!pack||pack.format!==DELTA_PACK_FORMAT)return 'This is not a Journey Companion Delta Pack.';
+    if(Number(pack.version)!==DELTA_PACK_VERSION)return `Unsupported Delta Pack version: ${pack.version}`;
+    if(!Array.isArray(pack.deltaPokemon))return 'The file does not contain a deltaPokemon array.';
+    for(const d of pack.deltaPokemon){
+      if(!d||!d.id||!d.name||!d.baseSpecies||!Array.isArray(d.types)){
+        return 'One or more Delta Pokémon entries are missing required fields.';
+      }
+    }
+    return '';
+  }
+
+  function importDeltaPack(pack){
+    const error=validateDeltaPack(pack);
+    if(error)throw new Error(error);
+
+    (pack.abilities||[]).forEach(a=>{
+      const exists=(state.contentLibrary||[]).some(x=>
+        x.type==='abilities'&&!x.deleted&&
+        String(x.data?.name||'').toLowerCase()===String(a.name||'').toLowerCase()
+      );
+      if(!exists){
+        state.contentLibrary.push({
+          id:deltaId('content'),
+          campaignId:state.activeCampaignId,
+          type:'abilities',
+          data:{...a,category:a.category||'Imported Ability'},
+          createdAt:new Date().toISOString(),
+          archived:false,
+          deleted:false
+        });
+      }
+    });
+
+    let imported=0,updated=0;
+    pack.deltaPokemon.forEach(d=>{
+      const found=state.contentLibrary.find(x=>x.type==='deltaPokemon'&&x.data?.id===d.id);
+      if(found){
+        found.data=d;
+        found.updatedAt=new Date().toISOString();
+        updated++;
+      }else{
+        state.contentLibrary.push({
+          id:deltaId('content'),
+          campaignId:state.activeCampaignId,
+          type:'deltaPokemon',
+          data:d,
+          createdAt:new Date().toISOString(),
+          archived:false,
+          deleted:false
+        });
+        imported++;
+      }
+    });
+    return {imported,updated};
+  }
+
+  function createPokemonFromDelta(delta){
+    const t=trainer();
+    if(!t)return alert('Create or select a Trainer first.');
+
+    const selectedAbility=delta.abilities?.[0]||delta.hiddenAbility||'';
+    const pokemon={
+      id:id('pokemon'),
+      trainerId:t.id,
+      species:delta.name,
+      baseSpecies:delta.baseSpecies,
+      isDelta:true,
+      deltaSpeciesId:delta.id,
+      nickname:'',
+      types:[...(delta.types||[])],
+      rank:Number(delta.rank||1),
+      tn:0,
+      nature:'Hardy',
+      ability:selectedAbility,
+      availableAbilities:[...(delta.abilities||[]),delta.hiddenAbility].filter(Boolean),
+      baseStats:{...(delta.stats||{})},
+      stats:{...(delta.stats||{})},
+      evolution:delta.evolution||'',
+      size:delta.size||'',
+      movement:delta.movement||'',
+      eggCycle:delta.eggCycle||'',
+      eggGroups:delta.eggGroups||'',
+      move1:delta.moveOverrides?.[0]||'',
+      move2:delta.moveOverrides?.[1]||'',
+      move3:delta.moveOverrides?.[2]||'',
+      move4:delta.moveOverrides?.[3]||'',
+      notes:[delta.appearance,delta.lore,delta.habitat,delta.notes].filter(Boolean).join('\n\n'),
+      rankHistory:[],
+      storageLocation:party(t.id).length<6?'party':'box',
+      boxNumber:party(t.id).length<6?null:firstAvailableBox(t.id)
+    };
+    state.pokemon.push(pokemon);
+    save();
+    alert(`${delta.name} was created for ${t.name}.`);
+    state.view='pokemon';
+    state.selectedPokemonId=pokemon.id;
+    render();
+  }
+
+  /* Add Delta Pokémon to the species search database. */
+  const previousAllSpeciesRecordsDelta=allSpeciesRecords;
+  allSpeciesRecords=function(){
+    const standard=previousAllSpeciesRecordsDelta();
+    const deltas=allDeltaRecords().map(d=>({
+      name:d.name,
+      number:`Δ-${d.id.slice(-5)}`,
+      category:d.category||'Delta Pokémon',
+      types:d.types||[],
+      evolution:d.evolution||'',
+      size:d.size||'',
+      genderRatio:d.genderRatio||'',
+      movement:d.movement||'',
+      eggCycle:d.eggCycle||'',
+      eggGroups:d.eggGroups||'',
+      abilities:d.abilities||[],
+      hiddenAbility:d.hiddenAbility||'',
+      stats:d.stats||{},
+      isDelta:true,
+      deltaSpeciesId:d.id
+    }));
+    return [...standard,...deltas];
+  };
+
+  /* Add Delta Lab to Tools. */
+  const previousToolsViewDelta=toolsView;
+  toolsView=function(){
+    if(state.toolTab==='deltaLab')return deltaLabView();
+    const original=previousToolsViewDelta();
+    return original.replace(
+      '<button data-tool="worldE"',
+      `<button data-tool="deltaLab" class="${state.toolTab==='deltaLab'?'active':''}">Delta Lab</button><button data-tool="worldE"`
+    );
+  };
+
+  /* Remove any duplicate Back controls after every render. */
+  function cleanDuplicateNavigation(){
+    document.querySelectorAll('#jc2UniversalBack,#jc2UniversalHome,.jc2-universal-back,.jc2-universal-home')
+      .forEach(el=>el.remove());
+
+    const inlineBars=[...document.querySelectorAll('.jc2-inline-nav')];
+    inlineBars.slice(1).forEach(el=>el.remove());
+
+    const backButtons=[...document.querySelectorAll('#jc2InlineBack')];
+    backButtons.slice(1).forEach(el=>el.remove());
+
+    const homeButtons=[...document.querySelectorAll('#jc2InlineHome')];
+    homeButtons.slice(1).forEach(el=>el.remove());
+  }
+
+  const previousBindDelta=bind;
+  bind=function(){
+    previousBindDelta();
+    cleanDuplicateNavigation();
+
+    document.querySelectorAll('[data-delta-tab]').forEach(b=>b.onclick=()=>{
+      state.deltaLab.tab=b.dataset.deltaTab;
+      save();render();
+    });
+
+    document.getElementById('resetDeltaDraft')?.addEventListener('click',()=>{
+      if(!confirm('Reset the current Delta Pokémon draft?'))return;
+      state.deltaLab.draft=blankDeltaDraft();
+      save();render();
+    });
+
+    document.getElementById('deltaPokemonForm')?.addEventListener('submit',e=>{
+      e.preventDefault();
+      const delta=deltaFromForm(e.target);
+      saveDeltaRecord(delta);
+      save();
+      alert(`${delta.name} was saved to the Delta Library.`);
+      state.deltaLab.tab='library';
+      render();
+    });
+
+    document.getElementById('saveAndExportDelta')?.addEventListener('click',()=>{
+      const form=document.getElementById('deltaPokemonForm');
+      const delta=deltaFromForm(form);
+      saveDeltaRecord(delta);
+      save();
+      exportDeltaFile([delta],`${slug(delta.name)}-delta-pokemon.json`);
+      render();
+    });
+
+    document.querySelectorAll('[data-edit-delta]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.editDelta);
+      if(!delta)return;
+      state.deltaLab.draft=structuredClone(delta);
+      state.deltaLab.tab='builder';
+      save();render();
+    });
+
+    document.querySelectorAll('[data-export-delta]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.exportDelta);
+      if(delta)exportDeltaFile([delta],`${slug(delta.name)}-delta-pokemon.json`);
+    });
+
+    document.querySelectorAll('[data-create-delta-pokemon]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.createDeltaPokemon);
+      if(delta)createPokemonFromDelta(delta);
+    });
+
+    document.querySelectorAll('[data-delete-delta]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.deleteDelta);
+      if(!confirm(`Delete ${delta?.name||'this Delta Pokémon'}?`))return;
+      state.contentLibrary=state.contentLibrary.filter(x=>!(x.type==='deltaPokemon'&&x.data?.id===b.dataset.deleteDelta));
+      save();render();
+    });
+
+    document.getElementById('exportAllDelta')?.addEventListener('click',()=>{
+      exportDeltaFile(allDeltaRecords(),'journey-companion-delta-pokemon-pack.json');
+      save();render();
+    });
+
+    document.getElementById('importDeltaPack')?.addEventListener('change',e=>{
+      const file=e.target.files[0];
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        const status=document.getElementById('deltaImportStatus');
+        try{
+          const pack=JSON.parse(reader.result);
+          const result=importDeltaPack(pack);
+          state.deltaLab.lastImport=`${file.name}: ${result.imported} imported, ${result.updated} updated`;
+          save();
+          if(status)status.innerHTML=`<strong>Import complete.</strong><br>${result.imported} new Delta Pokémon imported; ${result.updated} updated.`;
+          setTimeout(()=>render(),700);
+        }catch(error){
+          if(status)status.innerHTML=`<strong>Import failed.</strong><br>${esc(error.message)}`;
+        }
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  /* Migrate and finalize. */
+  ensureSolarNexus();
+  state.core=state.core||{};
+  state.core.deltaLabPatch='Delta Pokémon portable import/export and Solar Nexus';
+  state.core.navigationCleanup='Single inline Back navigation';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Universal Content Pack System */
+.jcc-tabs{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(120px,1fr));
+  gap:6px;
+  padding:5px;
+  margin:14px 0;
+  border-radius:16px;
+  background:#e8edf3;
+  overflow-x:auto
+}
+.jcc-tabs button{
+  border:0;
+  border-radius:11px;
+  padding:10px;
+  background:transparent;
+  color:var(--muted);
+  font-weight:900;
+  white-space:nowrap
+}
+.jcc-tabs button.active{
+  background:var(--paper);
+  color:var(--navy);
+  box-shadow:0 4px 12px rgba(23,32,51,.08)
+}
+.jcc-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px
+}
+.jcc-card{border-left:5px solid #315f91}
+.jcc-pack-card{border-left:5px solid #8a4fb3}
+.jcc-content-types{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px
+}
+.jcc-type{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:8px;
+  align-items:start;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--paper)
+}
+.jcc-type input{margin-top:3px}
+.jcc-preview{
+  max-height:420px;
+  overflow:auto;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#101822;
+  color:#dce8f5;
+  white-space:pre-wrap;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.78rem
+}
+.jcc-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px
+}
+.jcc-summary>div{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  text-align:center
+}
+.jcc-summary span{
+  display:block;
+  color:var(--muted);
+  font-size:.72rem;
+  font-weight:850
+}
+.jcc-summary strong{
+  font-size:1.2rem;
+  color:var(--navy)
+}
+.jcc-status{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#f5f7fa
+}
+.jcc-history{
+  display:grid;
+  gap:9px
+}
+.jcc-history-item{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:10px;
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--paper)
+}
+@media(max-width:760px){
+  .jcc-tabs{grid-template-columns:repeat(5,120px)}
+  .jcc-grid{grid-template-columns:1fr}
+  .jcc-content-types{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jcc-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jcc-history-item{grid-template-columns:1fr}
+}
+@media(max-width:460px){
+  .jcc-content-types{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+/* ==========================================================
+   JOURNEY COMPANION UNIVERSAL CONTENT PACKS
+   Format: journey-companion-content-pack
+   ========================================================== */
+(function installUniversalContentPacks(){
+  const PACK_FORMAT='journey-companion-content-pack';
+  const PACK_VERSION=1;
+  const EXTENSION='.jccpack';
+
+  state.contentPackCenter=state.contentPackCenter||{
+    tab:'builder',
+    selections:{},
+    history:[],
+    lastImport:null,
+    lastExport:null
+  };
+
+  const CONTENT_TYPES=[
+    ['deltaPokemon','Delta Pokémon'],
+    ['species','Custom Species'],
+    ['moves','Custom Moves'],
+    ['abilities','Custom Abilities'],
+    ['items','Custom Items'],
+    ['archetypes','Trainer Archetypes'],
+    ['classes','Trainer Classes'],
+    ['conditions','Status Conditions'],
+    ['weather','Weather'],
+    ['terrain','Terrain'],
+    ['rooms','Rooms / Field Effects'],
+    ['badges','Badges'],
+    ['rules','House Rules'],
+    ['teaRecipes','Tea Recipes'],
+    ['pokemonFoods','Pokémon Foods'],
+    ['npcs','NPCs'],
+    ['trainers','Trainers'],
+    ['quests','Quests'],
+    ['encounters','Encounters'],
+    ['gyms','Gyms'],
+    ['locations','Locations'],
+    ['routes','Routes'],
+    ['factions','Factions'],
+    ['sessions','Sessions'],
+    ['timeline','Timeline']
+  ];
+
+  function packId(prefix='pack'){
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function contentTypeLabel(type){
+    return CONTENT_TYPES.find(x=>x[0]===type)?.[1]||type;
+  }
+
+  function customEntriesByType(type){
+    return (state.contentLibrary||[])
+      .filter(x=>x.type===type&&!x.deleted&&!x.archived)
+      .map(x=>x.data);
+  }
+
+  function collectContent(type){
+    switch(type){
+      case 'deltaPokemon': return customEntriesByType('deltaPokemon');
+      case 'species': return customEntriesByType('species');
+      case 'moves': return customEntriesByType('moves');
+      case 'abilities': return customEntriesByType('abilities');
+      case 'items': return customEntriesByType('items');
+      case 'archetypes': return customEntriesByType('archetypes');
+      case 'classes': return customEntriesByType('classes');
+      case 'conditions': return customEntriesByType('conditions');
+      case 'weather': return customEntriesByType('weather');
+      case 'terrain': return customEntriesByType('terrain');
+      case 'rooms': return customEntriesByType('rooms');
+      case 'badges': return customEntriesByType('badges');
+      case 'rules': return customEntriesByType('rules');
+      case 'teaRecipes': return customEntriesByType('teaRecipes');
+      case 'pokemonFoods': return customEntriesByType('pokemonFoods');
+      case 'npcs': return state.npcs.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'trainers': return state.trainers.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'quests': return state.quests.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'encounters': return state.encounters.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'gyms': return state.gyms.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'locations': return state.locations.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'routes': return state.routes.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'factions': return state.factions.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'sessions': return state.sessions.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'timeline': return state.timeline.filter(x=>x.campaignId===state.activeCampaignId);
+      default: return [];
+    }
+  }
+
+  function selectedTypes(){
+    return CONTENT_TYPES.map(x=>x[0]).filter(type=>state.contentPackCenter.selections[type]);
+  }
+
+  function buildContentPack(types=selectedTypes(),meta={}){
+    const content={};
+    types.forEach(type=>content[type]=collectContent(type));
+    return {
+      format:PACK_FORMAT,
+      version:PACK_VERSION,
+      extension:EXTENSION,
+      app:'Journey Companion v2',
+      packId:meta.packId||packId('jcc'),
+      name:meta.name||'Journey Companion Content Pack',
+      description:meta.description||'',
+      author:meta.author||'',
+      campaign:meta.includeCampaign?campaign():null,
+      exportedAt:new Date().toISOString(),
+      content
+    };
+  }
+
+  function countPackContent(pack){
+    return Object.values(pack.content||{}).reduce((sum,arr)=>sum+(Array.isArray(arr)?arr.length:0),0);
+  }
+
+  function universalContentPackView(){
+    const tab=state.contentPackCenter.tab||'builder';
+    return `<section class="hero compact">
+      <span class="badge professor">Universal Content Packs</span>
+      <h1>Content Pack Center</h1>
+      <p>Bundle custom Pokémon, Abilities, Moves, quests, NPCs, maps, and campaign content into one importable file.</p>
+    </section>
+    <div class="jcc-tabs">
+      ${[
+        ['builder','Build Pack'],['preview','Preview'],
+        ['import','Import'],['history','History'],['help','Format Guide']
+      ].map(([k,l])=>`<button data-jcc-tab="${k}" class="${tab===k?'active':''}">${l}</button>`).join('')}
+    </div>
+    ${tab==='preview'?contentPackPreview():
+      tab==='import'?contentPackImport():
+      tab==='history'?contentPackHistory():
+      tab==='help'?contentPackHelp():
+      contentPackBuilder()}`;
+  }
+
+  function contentPackBuilder(){
+    return `<form id="contentPackBuilderForm" class="card jcc-pack-card form">
+      <h2>Create a Universal Content Pack</h2>
+      <div class="grid two">
+        ${field('Pack name','packName','My Journey Companion Pack','text','required')}
+        ${field('Author','author','')}
+      </div>
+      ${textarea('Description','description','')}
+      <label class="list-item">
+        <span><strong>Include campaign metadata</strong><br><span class="muted">Adds campaign name, region, and description to the pack.</span></span>
+        <input type="checkbox" name="includeCampaign">
+      </label>
+
+      <h3 class="section-gap">Choose Content</h3>
+      <div class="jcc-content-types">
+        ${CONTENT_TYPES.map(([type,label])=>{
+          const count=collectContent(type).length;
+          return `<label class="jcc-type">
+            <input type="checkbox" name="contentType" value="${type}" ${state.contentPackCenter.selections[type]?'checked':''} ${count?'':'disabled'}>
+            <span><strong>${esc(label)}</strong><br><span class="muted">${count} available</span></span>
+          </label>`;
+        }).join('')}
+      </div>
+
+      <div class="grid two section-gap">
+        <button type="button" class="btn secondary" id="selectAllPackContent">Select All Available</button>
+        <button type="button" class="btn secondary" id="clearPackSelection">Clear Selection</button>
+      </div>
+
+      <div class="grid two section-gap">
+        <button type="button" class="btn secondary" id="previewContentPack">Preview Pack</button>
+        <button class="btn primary">Download .jccpack</button>
+      </div>
+    </form>`;
+  }
+
+  function currentPackPreview(){
+    const meta=state.contentPackCenter.previewMeta||{
+      name:'Journey Companion Content Pack',
+      description:'',
+      author:'',
+      includeCampaign:false
+    };
+    return buildContentPack(selectedTypes(),meta);
+  }
+
+  function contentPackPreview(){
+    const pack=currentPackPreview();
+    const typeCount=Object.keys(pack.content||{}).length;
+    return `<section class="card jcc-card">
+      <h2>Content Pack Preview</h2>
+      <div class="jcc-summary">
+        <div><span>Content Types</span><strong>${typeCount}</strong></div>
+        <div><span>Total Records</span><strong>${countPackContent(pack)}</strong></div>
+        <div><span>Format Version</span><strong>${PACK_VERSION}</strong></div>
+        <div><span>Extension</span><strong>${EXTENSION}</strong></div>
+      </div>
+      <button class="btn primary full section-gap" id="downloadPreviewPack">Download This Pack</button>
+      <pre class="jcc-preview section-gap">${esc(JSON.stringify(pack,null,2))}</pre>
+    </section>`;
+  }
+
+  function contentPackImport(){
+    return `<section class="card jcc-pack-card">
+      <h2>Import a Content Pack</h2>
+      <p class="muted">Import a <strong>.jccpack</strong> file or a compatible JSON file generated by Journey Companion or ChatGPT.</p>
+      <label class="btn primary file-label">Choose Content Pack
+        <input id="importContentPack" type="file" accept=".jccpack,application/json,.json">
+      </label>
+      <div id="contentPackImportStatus" class="jcc-status section-gap">
+        ${state.contentPackCenter.lastImport
+          ? `<strong>Last import:</strong><br>${esc(state.contentPackCenter.lastImport)}`
+          : 'No content pack imported in this session.'}
+      </div>
+    </section>`;
+  }
+
+  function contentPackHistory(){
+    const rows=(state.contentPackCenter.history||[]).slice().reverse();
+    return `<div class="section-title"><h2>Pack History</h2><button class="btn danger" id="clearContentPackHistory">Clear</button></div>
+    <div class="jcc-history">${rows.map(x=>`
+      <div class="jcc-history-item">
+        <time>${esc(new Date(x.date).toLocaleString())}</time>
+        <div><span class="tag">${esc(x.action)}</span><strong style="display:block;margin-top:5px">${esc(x.name||'Content Pack')}</strong><p class="muted">${esc(x.details||'')}</p></div>
+      </div>`).join('')||empty('No content pack activity recorded.')}</div>`;
+  }
+
+  function contentPackHelp(){
+    return `<section class="card jcc-card">
+      <h2>Journey Companion Content Pack Format</h2>
+      <p>The standard file extension is <strong>.jccpack</strong>. The file itself contains JSON and can also be imported with a <strong>.json</strong> extension.</p>
+      <div class="jc2-feature-list section-gap">
+        <div class="jc2-feature"><span class="jc2-feature-icon">1</span><span><strong>Design content with ChatGPT</strong><br><span class="muted">Ask for a Delta Pokémon, custom Ability, quest, NPC, Gym, item set, or complete adventure.</span></span></div>
+        <div class="jc2-feature"><span class="jc2-feature-icon">2</span><span><strong>Download the generated pack</strong><br><span class="muted">ChatGPT can provide a .jccpack file following this format.</span></span></div>
+        <div class="jc2-feature"><span class="jc2-feature-icon">3</span><span><strong>Import it in the app</strong><br><span class="muted">Open Tools → Content Packs → Import and choose the file.</span></span></div>
+        <div class="jc2-feature"><span class="jc2-feature-icon">4</span><span><strong>Use the new content immediately</strong><br><span class="muted">Imported custom content becomes available in the appropriate builders and campaign tools.</span></span></div>
+      </div>
+      <pre class="jcc-preview section-gap">${esc(JSON.stringify({
+        format:PACK_FORMAT,
+        version:PACK_VERSION,
+        extension:EXTENSION,
+        app:'Journey Companion v2',
+        packId:'jcc_example',
+        name:'Example Pack',
+        description:'Example portable content pack',
+        author:'Creator',
+        exportedAt:'ISO date',
+        content:{
+          deltaPokemon:[],
+          abilities:[],
+          moves:[],
+          items:[],
+          quests:[],
+          npcs:[]
+        }
+      },null,2))}</pre>
+    </section>`;
+  }
+
+  function historyEntry(action,name,details){
+    state.contentPackCenter.history=state.contentPackCenter.history||[];
+    state.contentPackCenter.history.push({
+      id:packId('history'),
+      action,name,details,
+      date:new Date().toISOString()
+    });
+    state.contentPackCenter.history=state.contentPackCenter.history.slice(-100);
+  }
+
+  function downloadPack(pack){
+    const safeName=slug(pack.name||'journey-companion-content-pack')||'journey-companion-content-pack';
+    const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download=`${safeName}${EXTENSION}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    state.contentPackCenter.lastExport=new Date().toISOString();
+    historyEntry('Export',pack.name,`${Object.keys(pack.content||{}).length} content types • ${countPackContent(pack)} records`);
+  }
+
+  function validateContentPack(pack){
+    if(!pack||pack.format!==PACK_FORMAT)return 'This is not a Journey Companion Content Pack.';
+    if(Number(pack.version)!==PACK_VERSION)return `Unsupported pack version: ${pack.version}`;
+    if(!pack.content||typeof pack.content!=='object'||Array.isArray(pack.content))return 'The content object is missing.';
+    return '';
+  }
+
+  function contentIdentity(type,record){
+    if(!record||typeof record!=='object')return JSON.stringify(record);
+    return String(
+      record.id||
+      record.name||
+      record.title||
+      record.key||
+      `${type}_${JSON.stringify(record).slice(0,80)}`
+    ).toLowerCase();
+  }
+
+  function upsertCustomContent(type,record){
+    state.contentLibrary=state.contentLibrary||[];
+    const identity=contentIdentity(type,record);
+    const existing=state.contentLibrary.find(x=>
+      x.type===type&&!x.deleted&&contentIdentity(type,x.data)===identity
+    );
+    if(existing){
+      existing.data=record;
+      existing.updatedAt=new Date().toISOString();
+      return 'updated';
+    }
+    state.contentLibrary.push({
+      id:packId('content'),
+      campaignId:state.activeCampaignId,
+      type,
+      data:record,
+      createdAt:new Date().toISOString(),
+      archived:false,
+      deleted:false
+    });
+    return 'imported';
+  }
+
+  function upsertCampaignRecord(collectionName,record){
+    const collection=state[collectionName]=state[collectionName]||[];
+    const identity=contentIdentity(collectionName,record);
+    const existing=collection.find(x=>contentIdentity(collectionName,x)===identity);
+    const normalized={...record,campaignId:state.activeCampaignId};
+    if(existing){
+      Object.assign(existing,normalized);
+      return 'updated';
+    }
+    collection.push({...normalized,id:record.id||packId(collectionName)});
+    return 'imported';
+  }
+
+  function importContentPack(pack){
+    const error=validateContentPack(pack);
+    if(error)throw new Error(error);
+
+    let imported=0,updated=0,skipped=0;
+    const campaignCollections=new Set([
+      'npcs','trainers','quests','encounters','gyms','locations',
+      'routes','factions','sessions','timeline'
+    ]);
+
+    Object.entries(pack.content||{}).forEach(([type,records])=>{
+      if(!Array.isArray(records)){skipped++;return}
+      records.forEach(record=>{
+        let result;
+        if(campaignCollections.has(type)){
+          result=upsertCampaignRecord(type,record);
+        }else{
+          result=upsertCustomContent(type,record);
+        }
+        if(result==='imported')imported++;
+        else if(result==='updated')updated++;
+        else skipped++;
+      });
+    });
+
+    historyEntry('Import',pack.name||'Imported Pack',`${imported} imported • ${updated} updated • ${skipped} skipped`);
+    state.contentPackCenter.lastImport=`${pack.name||'Content Pack'}: ${imported} imported, ${updated} updated, ${skipped} skipped`;
+    return {imported,updated,skipped};
+  }
+
+  /* Convert Delta Packs automatically for backward compatibility. */
+  function convertLegacyDeltaPack(pack){
+    if(pack?.format!=='journey-companion-delta-pokemon')return pack;
+    return {
+      format:PACK_FORMAT,
+      version:PACK_VERSION,
+      extension:EXTENSION,
+      app:'Journey Companion v2',
+      packId:packId('legacyDelta'),
+      name:'Imported Delta Pokémon Pack',
+      description:'Automatically converted from the earlier Delta Pack format.',
+      author:'',
+      exportedAt:new Date().toISOString(),
+      content:{
+        deltaPokemon:pack.deltaPokemon||[],
+        abilities:pack.abilities||[]
+      }
+    };
+  }
+
+  /* Add Content Packs to Tools. */
+  const previousToolsViewContentPack=toolsView;
+  toolsView=function(){
+    if(state.toolTab==='contentPacks')return universalContentPackView();
+    const original=previousToolsViewContentPack();
+    return original.replace(
+      '<button data-tool="deltaLab"',
+      `<button data-tool="contentPacks" class="${state.toolTab==='contentPacks'?'active':''}">Content Packs</button><button data-tool="deltaLab"`
+    );
+  };
+
+  const previousBindContentPack=bind;
+  bind=function(){
+    previousBindContentPack();
+
+    document.querySelectorAll('[data-jcc-tab]').forEach(b=>b.onclick=()=>{
+      state.contentPackCenter.tab=b.dataset.jccTab;
+      save();render();
+    });
+
+    document.getElementById('selectAllPackContent')?.addEventListener('click',()=>{
+      CONTENT_TYPES.forEach(([type])=>{
+        state.contentPackCenter.selections[type]=collectContent(type).length>0;
+      });
+      save();render();
+    });
+
+    document.getElementById('clearPackSelection')?.addEventListener('click',()=>{
+      state.contentPackCenter.selections={};
+      save();render();
+    });
+
+    document.getElementById('previewContentPack')?.addEventListener('click',()=>{
+      const form=document.getElementById('contentPackBuilderForm');
+      const fd=new FormData(form);
+      state.contentPackCenter.selections={};
+      fd.getAll('contentType').forEach(type=>state.contentPackCenter.selections[type]=true);
+      state.contentPackCenter.previewMeta={
+        name:String(fd.get('packName')||'Journey Companion Content Pack'),
+        author:String(fd.get('author')||''),
+        description:String(fd.get('description')||''),
+        includeCampaign:fd.get('includeCampaign')==='on'
+      };
+      state.contentPackCenter.tab='preview';
+      save();render();
+    });
+
+    document.getElementById('contentPackBuilderForm')?.addEventListener('submit',e=>{
+      e.preventDefault();
+      const fd=new FormData(e.target);
+      const types=fd.getAll('contentType');
+      if(!types.length)return alert('Select at least one content type.');
+      state.contentPackCenter.selections={};
+      types.forEach(type=>state.contentPackCenter.selections[type]=true);
+      const pack=buildContentPack(types,{
+        name:String(fd.get('packName')||'Journey Companion Content Pack'),
+        author:String(fd.get('author')||''),
+        description:String(fd.get('description')||''),
+        includeCampaign:fd.get('includeCampaign')==='on'
+      });
+      downloadPack(pack);
+      save();render();
+    });
+
+    document.getElementById('downloadPreviewPack')?.addEventListener('click',()=>{
+      downloadPack(currentPackPreview());
+      save();render();
+    });
+
+    document.getElementById('importContentPack')?.addEventListener('change',e=>{
+      const file=e.target.files[0];
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        const status=document.getElementById('contentPackImportStatus');
+        try{
+          const raw=JSON.parse(reader.result);
+          const pack=convertLegacyDeltaPack(raw);
+          const result=importContentPack(pack);
+          save();
+          if(status){
+            status.innerHTML=`<strong>Import complete.</strong><br>${result.imported} imported, ${result.updated} updated, ${result.skipped} skipped.`;
+          }
+          setTimeout(()=>render(),700);
+        }catch(error){
+          if(status)status.innerHTML=`<strong>Import failed.</strong><br>${esc(error.message)}`;
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('clearContentPackHistory')?.addEventListener('click',()=>{
+      if(confirm('Clear content pack history?')){
+        state.contentPackCenter.history=[];
+        save();render();
+      }
+    });
+  };
+
+  state.core=state.core||{};
+  state.core.contentPackPatch='Universal Journey Companion Content Packs';
+  state.core.contentPackFormat=PACK_FORMAT;
+  state.core.contentPackVersion=PACK_VERSION;
   save();
   render();
 })();
@@ -8039,10 +9313,7 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
     const base = previousShellUniversalBack();
     const canGoBack = (state.phaseF?.navHistory || []).length > 0 || state.view !== 'home';
     return base + `
-      <button class="jc2-universal-back" id="jc2UniversalBack" ${canGoBack ? '' : 'disabled'} aria-label="Go back">
-        <span class="arrow">←</span><span>Back</span>
-      </button>
-      <button class="jc2-universal-home" id="jc2UniversalHome" aria-label="Go to home" title="Home">⌂</button>`;
+      `;
   };
 
   const originalRenderUniversalBack = render;
@@ -9188,6 +10459,1283 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 
   state.core=state.core||{};
   state.core.abilityPickerPatch='Searchable Ability Dropdown';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* ==========================================================
+   Delta Lab, Solar Nexus, and Navigation Cleanup
+   ========================================================== */
+
+/* Guarantee that legacy floating controls never appear. */
+.jc2-universal-back,
+.jc2-universal-home,
+#jc2UniversalBack,
+#jc2UniversalHome{
+  display:none!important;
+}
+
+/* Keep one clear navigation bar only. */
+.jc2-inline-nav{
+  position:relative!important;
+  inset:auto!important;
+  margin:0 0 14px!important;
+}
+body > .jc2-inline-nav{display:none!important}
+
+.delta-tabs{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(120px,1fr));
+  gap:6px;
+  padding:5px;
+  margin:14px 0;
+  border-radius:16px;
+  background:#e8edf3;
+  overflow-x:auto
+}
+.delta-tabs button{
+  border:0;
+  border-radius:11px;
+  padding:10px;
+  background:transparent;
+  color:var(--muted);
+  font-weight:900;
+  white-space:nowrap
+}
+.delta-tabs button.active{
+  background:var(--paper);
+  color:var(--navy);
+  box-shadow:0 4px 12px rgba(23,32,51,.08)
+}
+.delta-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px
+}
+.delta-card{border-left:5px solid #8a4fb3}
+.delta-stat-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px
+}
+.delta-stat{
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#f5f7fa
+}
+.delta-stat label{
+  display:block;
+  font-size:.72rem;
+  color:var(--muted);
+  font-weight:850;
+  margin-bottom:5px
+}
+.delta-pack-preview{
+  max-height:360px;
+  overflow:auto;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#111923;
+  color:#dce8f5;
+  white-space:pre-wrap;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.78rem
+}
+.delta-import-status{
+  padding:11px;
+  border-radius:13px;
+  border:1px solid var(--line);
+  background:#f5f7fa
+}
+.solar-nexus-badge{
+  display:inline-flex;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#fff1c9;
+  color:#7a5200;
+  font-weight:900;
+  font-size:.76rem
+}
+@media(max-width:760px){
+  .delta-grid{grid-template-columns:1fr}
+  .delta-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .delta-tabs{grid-template-columns:repeat(4,120px)}
+}
+</style>
+
+<script>
+/* ==========================================================
+   DELTA LAB + SOLAR NEXUS + CLEANUP
+   ========================================================== */
+(function installDeltaLabAndCleanup(){
+  const DELTA_PACK_FORMAT='journey-companion-delta-pokemon';
+  const DELTA_PACK_VERSION=1;
+
+  state.deltaLab=state.deltaLab||{
+    tab:'builder',
+    draft:null,
+    lastExport:null,
+    lastImport:null
+  };
+
+  const SOLAR_NEXUS={
+    name:'Solar Nexus',
+    effect:'This Pokémon is always treated as though Harsh Sunlight is active for itself only. This does not change battlefield weather. Sun-dependent Moves, Abilities, healing, charging, and other effects treat the user as being under Harsh Sunlight. Effects that suppress Abilities can suppress Solar Nexus.',
+    notes:'Signature Ability. Personal sunlight affects only the user and does not activate sunlight effects for allies or replace the battlefield weather.'
+  };
+
+  function deltaId(prefix='delta'){
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function ensureSolarNexus(){
+    state.contentLibrary=state.contentLibrary||[];
+    const exists=state.contentLibrary.some(x=>
+      x.type==='abilities'&&!x.deleted&&
+      String(x.data?.name||'').toLowerCase()==='solar nexus'
+    );
+    if(!exists){
+      state.contentLibrary.push({
+        id:deltaId('content'),
+        campaignId:state.activeCampaignId,
+        type:'abilities',
+        data:{...SOLAR_NEXUS,category:'Signature Ability'},
+        createdAt:new Date().toISOString(),
+        archived:false,
+        deleted:false
+      });
+    }
+  }
+
+  function blankDeltaDraft(){
+    return {
+      id:deltaId('deltaSpecies'),
+      baseSpecies:'',
+      name:'',
+      category:'Delta Pokémon',
+      types:['Normal'],
+      rank:1,
+      evolution:'',
+      size:'',
+      movement:'',
+      eggCycle:'',
+      eggGroups:'',
+      genderRatio:'',
+      abilities:['Solar Nexus'],
+      hiddenAbility:'',
+      stats:{
+        HP:'d6',
+        Attack:'d6',
+        Defense:'d6',
+        'Special Attack':'d6',
+        'Special Defense':'d6',
+        Speed:'d6'
+      },
+      moveOverrides:[],
+      lore:'',
+      appearance:'',
+      habitat:'',
+      notes:'',
+      createdAt:new Date().toISOString()
+    };
+  }
+
+  function deltaDraft(){
+    state.deltaLab.draft=state.deltaLab.draft||blankDeltaDraft();
+    return state.deltaLab.draft;
+  }
+
+  function allDeltaRecords(){
+    return (state.contentLibrary||[])
+      .filter(x=>x.type==='deltaPokemon'&&!x.deleted&&!x.archived)
+      .map(x=>x.data);
+  }
+
+  function deltaAbilityOptions(selected=''){
+    const names=new Set(['Solar Nexus']);
+    if(typeof allAbilityNames==='function')allAbilityNames().forEach(x=>names.add(x));
+    (state.contentLibrary||[])
+      .filter(x=>x.type==='abilities'&&!x.deleted&&!x.archived)
+      .forEach(x=>names.add(x.data?.name));
+    return [...names].filter(Boolean).sort()
+      .map(x=>`<option value="${esc(x)}" ${selected===x?'selected':''}>${esc(x)}</option>`)
+      .join('');
+  }
+
+  function deltaTypeOptions(selected=''){
+    return TYPES.map(t=>`<option value="${t}" ${selected===t?'selected':''}>${t}</option>`).join('');
+  }
+
+  function deltaLabView(){
+    const tab=state.deltaLab.tab||'builder';
+    return `<section class="hero compact">
+      <span class="badge professor">Delta Lab</span>
+      <h1>Delta Pokémon Creator</h1>
+      <p>Create custom Delta species, export portable files, and import them directly into Journey Companion.</p>
+    </section>
+    <div class="delta-tabs">
+      ${[
+        ['builder','Create Delta'],['library','Delta Library'],
+        ['export','Export File'],['import','Import File']
+      ].map(([k,l])=>`<button data-delta-tab="${k}" class="${tab===k?'active':''}">${l}</button>`).join('')}
+    </div>
+    ${tab==='library'?deltaLibraryView():
+      tab==='export'?deltaExportView():
+      tab==='import'?deltaImportView():
+      deltaBuilderView()}`;
+  }
+
+  function deltaBuilderView(){
+    const d=deltaDraft();
+    return `<form id="deltaPokemonForm" class="card form delta-card">
+      <div class="stat">
+        <div><span class="solar-nexus-badge">Solar Nexus Included</span><h2 style="margin:8px 0">Build a Delta Pokémon</h2></div>
+        <button type="button" class="btn secondary" id="resetDeltaDraft">Reset</button>
+      </div>
+
+      <div class="grid two">
+        ${field('Base species','baseSpecies',d.baseSpecies,'text','required')}
+        ${field('Delta name','name',d.name,'text','required')}
+      </div>
+
+      <div class="grid two">
+        <div class="field"><label>Primary Type</label><select name="type1">${deltaTypeOptions(d.types?.[0]||'Normal')}</select></div>
+        <div class="field"><label>Secondary Type</label><select name="type2"><option value="">None</option>${deltaTypeOptions(d.types?.[1]||'')}</select></div>
+      </div>
+
+      <div class="grid two">
+        ${field('Category','category',d.category)}
+        ${field('Suggested starting Rank','rank',d.rank,'number','min="1" max="10"')}
+      </div>
+
+      <div class="grid two">
+        ${field('Evolution','evolution',d.evolution)}
+        ${field('Size','size',d.size)}
+      </div>
+
+      <div class="grid two">
+        ${field('Movement','movement',d.movement)}
+        ${field('Gender ratio','genderRatio',d.genderRatio)}
+      </div>
+
+      <div class="grid two">
+        ${field('Egg cycle','eggCycle',d.eggCycle)}
+        ${field('Egg groups','eggGroups',d.eggGroups)}
+      </div>
+
+      <section class="pd-form-section">
+        <h3>Base Stats</h3>
+        <div class="delta-stat-grid">
+          ${Object.entries(d.stats||{}).map(([stat,value])=>`
+            <div class="delta-stat">
+              <label>${esc(stat)}</label>
+              <select name="stat_${esc(stat)}">${['d4','d6','d8','d10','d12'].map(x=>`<option ${value===x?'selected':''}>${x}</option>`).join('')}</select>
+            </div>`).join('')}
+        </div>
+      </section>
+
+      <section class="pd-form-section">
+        <h3>Abilities</h3>
+        <div class="grid two">
+          <div class="field"><label>Ability 1</label><select name="ability1">${deltaAbilityOptions(d.abilities?.[0]||'Solar Nexus')}</select></div>
+          <div class="field"><label>Ability 2</label><select name="ability2"><option value="">None</option>${deltaAbilityOptions(d.abilities?.[1]||'')}</select></div>
+        </div>
+        <div class="field"><label>Hidden Ability</label><select name="hiddenAbility"><option value="">None</option>${deltaAbilityOptions(d.hiddenAbility||'')}</select></div>
+      </section>
+
+      ${textarea('Appearance changes','appearance',d.appearance)}
+      ${textarea('Lore and origin','lore',d.lore)}
+      ${textarea('Habitat and encounter notes','habitat',d.habitat)}
+      ${textarea('Move changes or special Move access','moveOverridesText',(d.moveOverrides||[]).join('\n'))}
+      ${textarea('Professor notes','notes',d.notes)}
+
+      <div class="grid two">
+        <button class="btn primary">Save Delta Pokémon</button>
+        <button type="button" class="btn secondary" id="saveAndExportDelta">Save & Export File</button>
+      </div>
+    </form>`;
+  }
+
+  function deltaLibraryView(){
+    const rows=allDeltaRecords();
+    return `<div class="section-title"><h2>Delta Pokémon Library</h2><span class="badge professor">${rows.length}</span></div>
+    <div class="delta-grid">${rows.map(d=>`
+      <section class="card delta-card">
+        <div class="stat">
+          <div><strong>${esc(d.name)}</strong><div class="muted">Delta ${esc(d.baseSpecies)} • ${esc((d.types||[]).join(' / '))}</div></div>
+          <span class="tag">Rank ${Number(d.rank||1)}</span>
+        </div>
+        <p class="pre">${esc(d.appearance||d.lore||'No description entered.')}</p>
+        <p class="small"><strong>Abilities:</strong> ${esc([...(d.abilities||[]),d.hiddenAbility].filter(Boolean).join(', ')||'None')}</p>
+        <div class="grid two">
+          <button class="btn secondary" data-edit-delta="${d.id}">Edit</button>
+          <button class="btn secondary" data-export-delta="${d.id}">Export</button>
+          <button class="btn primary" data-create-delta-pokemon="${d.id}">Create Pokémon</button>
+          <button class="btn danger" data-delete-delta="${d.id}">Delete</button>
+        </div>
+      </section>`).join('')||empty('No Delta Pokémon have been created yet.')}</div>`;
+  }
+
+  function buildDeltaPack(deltas){
+    return {
+      format:DELTA_PACK_FORMAT,
+      version:DELTA_PACK_VERSION,
+      app:'Journey Companion v2',
+      exportedAt:new Date().toISOString(),
+      abilities:[SOLAR_NEXUS],
+      deltaPokemon:deltas
+    };
+  }
+
+  function deltaExportView(){
+    const rows=allDeltaRecords();
+    const pack=buildDeltaPack(rows);
+    return `<section class="card delta-card">
+      <h2>Export Delta Pack</h2>
+      <p class="muted">This JSON file can be imported directly into another copy of Journey Companion.</p>
+      <div class="jc2-summary section-gap">
+        <div><span>Delta Species</span><strong>${rows.length}</strong></div>
+        <div><span>Abilities Included</span><strong>1</strong></div>
+        <div><span>Format Version</span><strong>${DELTA_PACK_VERSION}</strong></div>
+        <div><span>Portable</span><strong>Yes</strong></div>
+      </div>
+      <button class="btn primary full section-gap" id="exportAllDelta">Download Delta Pack</button>
+      <pre class="delta-pack-preview section-gap">${esc(JSON.stringify(pack,null,2))}</pre>
+    </section>`;
+  }
+
+  function deltaImportView(){
+    return `<section class="card delta-card">
+      <h2>Import Delta Pokémon File</h2>
+      <p class="muted">Choose a Journey Companion Delta Pack JSON file. The app validates the format before importing it.</p>
+      <label class="btn primary file-label">Choose Delta Pack
+        <input id="importDeltaPack" type="file" accept="application/json,.json">
+      </label>
+      <div id="deltaImportStatus" class="delta-import-status section-gap">
+        ${state.deltaLab.lastImport
+          ? `<strong>Last import:</strong> ${esc(state.deltaLab.lastImport)}`
+          : 'No Delta Pack imported in this session.'}
+      </div>
+    </section>`;
+  }
+
+  function deltaFromForm(form){
+    const fd=new FormData(form);
+    const existing=deltaDraft();
+    const stats={};
+    ['HP','Attack','Defense','Special Attack','Special Defense','Speed']
+      .forEach(s=>stats[s]=String(fd.get(`stat_${s}`)||'d6'));
+
+    return {
+      ...existing,
+      id:existing.id||deltaId('deltaSpecies'),
+      baseSpecies:String(fd.get('baseSpecies')||'').trim(),
+      name:String(fd.get('name')||'').trim(),
+      category:String(fd.get('category')||'Delta Pokémon').trim(),
+      types:[String(fd.get('type1')||'Normal'),String(fd.get('type2')||'')].filter(Boolean),
+      rank:Math.max(1,Math.min(10,Number(fd.get('rank')||1))),
+      evolution:String(fd.get('evolution')||'').trim(),
+      size:String(fd.get('size')||'').trim(),
+      movement:String(fd.get('movement')||'').trim(),
+      genderRatio:String(fd.get('genderRatio')||'').trim(),
+      eggCycle:String(fd.get('eggCycle')||'').trim(),
+      eggGroups:String(fd.get('eggGroups')||'').trim(),
+      abilities:[String(fd.get('ability1')||'').trim(),String(fd.get('ability2')||'').trim()].filter(Boolean),
+      hiddenAbility:String(fd.get('hiddenAbility')||'').trim(),
+      stats,
+      appearance:String(fd.get('appearance')||'').trim(),
+      lore:String(fd.get('lore')||'').trim(),
+      habitat:String(fd.get('habitat')||'').trim(),
+      moveOverrides:String(fd.get('moveOverridesText')||'')
+        .split('\n').map(x=>x.trim()).filter(Boolean),
+      notes:String(fd.get('notes')||'').trim(),
+      updatedAt:new Date().toISOString()
+    };
+  }
+
+  function saveDeltaRecord(delta){
+    state.contentLibrary=state.contentLibrary||[];
+    const found=state.contentLibrary.find(x=>x.type==='deltaPokemon'&&x.data?.id===delta.id);
+    if(found){
+      found.data=delta;
+      found.updatedAt=new Date().toISOString();
+    }else{
+      state.contentLibrary.push({
+        id:deltaId('content'),
+        campaignId:state.activeCampaignId,
+        type:'deltaPokemon',
+        data:delta,
+        createdAt:new Date().toISOString(),
+        archived:false,
+        deleted:false
+      });
+    }
+    state.deltaLab.draft=delta;
+    if(typeof professorLogEntry==='function'){
+      professorLogEntry(`Saved Delta Pokémon: ${delta.name}`,`Delta ${delta.baseSpecies} • ${delta.types.join(' / ')}`);
+    }
+  }
+
+  function exportDeltaFile(deltas,filename='journey-companion-delta-pack.json'){
+    const pack=buildDeltaPack(deltas);
+    downloadJson(pack,filename);
+    state.deltaLab.lastExport=new Date().toISOString();
+  }
+
+  function validateDeltaPack(pack){
+    if(!pack||pack.format!==DELTA_PACK_FORMAT)return 'This is not a Journey Companion Delta Pack.';
+    if(Number(pack.version)!==DELTA_PACK_VERSION)return `Unsupported Delta Pack version: ${pack.version}`;
+    if(!Array.isArray(pack.deltaPokemon))return 'The file does not contain a deltaPokemon array.';
+    for(const d of pack.deltaPokemon){
+      if(!d||!d.id||!d.name||!d.baseSpecies||!Array.isArray(d.types)){
+        return 'One or more Delta Pokémon entries are missing required fields.';
+      }
+    }
+    return '';
+  }
+
+  function importDeltaPack(pack){
+    const error=validateDeltaPack(pack);
+    if(error)throw new Error(error);
+
+    (pack.abilities||[]).forEach(a=>{
+      const exists=(state.contentLibrary||[]).some(x=>
+        x.type==='abilities'&&!x.deleted&&
+        String(x.data?.name||'').toLowerCase()===String(a.name||'').toLowerCase()
+      );
+      if(!exists){
+        state.contentLibrary.push({
+          id:deltaId('content'),
+          campaignId:state.activeCampaignId,
+          type:'abilities',
+          data:{...a,category:a.category||'Imported Ability'},
+          createdAt:new Date().toISOString(),
+          archived:false,
+          deleted:false
+        });
+      }
+    });
+
+    let imported=0,updated=0;
+    pack.deltaPokemon.forEach(d=>{
+      const found=state.contentLibrary.find(x=>x.type==='deltaPokemon'&&x.data?.id===d.id);
+      if(found){
+        found.data=d;
+        found.updatedAt=new Date().toISOString();
+        updated++;
+      }else{
+        state.contentLibrary.push({
+          id:deltaId('content'),
+          campaignId:state.activeCampaignId,
+          type:'deltaPokemon',
+          data:d,
+          createdAt:new Date().toISOString(),
+          archived:false,
+          deleted:false
+        });
+        imported++;
+      }
+    });
+    return {imported,updated};
+  }
+
+  function createPokemonFromDelta(delta){
+    const t=trainer();
+    if(!t)return alert('Create or select a Trainer first.');
+
+    const selectedAbility=delta.abilities?.[0]||delta.hiddenAbility||'';
+    const pokemon={
+      id:id('pokemon'),
+      trainerId:t.id,
+      species:delta.name,
+      baseSpecies:delta.baseSpecies,
+      isDelta:true,
+      deltaSpeciesId:delta.id,
+      nickname:'',
+      types:[...(delta.types||[])],
+      rank:Number(delta.rank||1),
+      tn:0,
+      nature:'Hardy',
+      ability:selectedAbility,
+      availableAbilities:[...(delta.abilities||[]),delta.hiddenAbility].filter(Boolean),
+      baseStats:{...(delta.stats||{})},
+      stats:{...(delta.stats||{})},
+      evolution:delta.evolution||'',
+      size:delta.size||'',
+      movement:delta.movement||'',
+      eggCycle:delta.eggCycle||'',
+      eggGroups:delta.eggGroups||'',
+      move1:delta.moveOverrides?.[0]||'',
+      move2:delta.moveOverrides?.[1]||'',
+      move3:delta.moveOverrides?.[2]||'',
+      move4:delta.moveOverrides?.[3]||'',
+      notes:[delta.appearance,delta.lore,delta.habitat,delta.notes].filter(Boolean).join('\n\n'),
+      rankHistory:[],
+      storageLocation:party(t.id).length<6?'party':'box',
+      boxNumber:party(t.id).length<6?null:firstAvailableBox(t.id)
+    };
+    state.pokemon.push(pokemon);
+    save();
+    alert(`${delta.name} was created for ${t.name}.`);
+    state.view='pokemon';
+    state.selectedPokemonId=pokemon.id;
+    render();
+  }
+
+  /* Add Delta Pokémon to the species search database. */
+  const previousAllSpeciesRecordsDelta=allSpeciesRecords;
+  allSpeciesRecords=function(){
+    const standard=previousAllSpeciesRecordsDelta();
+    const deltas=allDeltaRecords().map(d=>({
+      name:d.name,
+      number:`Δ-${d.id.slice(-5)}`,
+      category:d.category||'Delta Pokémon',
+      types:d.types||[],
+      evolution:d.evolution||'',
+      size:d.size||'',
+      genderRatio:d.genderRatio||'',
+      movement:d.movement||'',
+      eggCycle:d.eggCycle||'',
+      eggGroups:d.eggGroups||'',
+      abilities:d.abilities||[],
+      hiddenAbility:d.hiddenAbility||'',
+      stats:d.stats||{},
+      isDelta:true,
+      deltaSpeciesId:d.id
+    }));
+    return [...standard,...deltas];
+  };
+
+  /* Add Delta Lab to Tools. */
+  const previousToolsViewDelta=toolsView;
+  toolsView=function(){
+    if(state.toolTab==='deltaLab')return deltaLabView();
+    const original=previousToolsViewDelta();
+    return original.replace(
+      '<button data-tool="worldE"',
+      `<button data-tool="deltaLab" class="${state.toolTab==='deltaLab'?'active':''}">Delta Lab</button><button data-tool="worldE"`
+    );
+  };
+
+  /* Remove any duplicate Back controls after every render. */
+  function cleanDuplicateNavigation(){
+    document.querySelectorAll('#jc2UniversalBack,#jc2UniversalHome,.jc2-universal-back,.jc2-universal-home')
+      .forEach(el=>el.remove());
+
+    const inlineBars=[...document.querySelectorAll('.jc2-inline-nav')];
+    inlineBars.slice(1).forEach(el=>el.remove());
+
+    const backButtons=[...document.querySelectorAll('#jc2InlineBack')];
+    backButtons.slice(1).forEach(el=>el.remove());
+
+    const homeButtons=[...document.querySelectorAll('#jc2InlineHome')];
+    homeButtons.slice(1).forEach(el=>el.remove());
+  }
+
+  const previousBindDelta=bind;
+  bind=function(){
+    previousBindDelta();
+    cleanDuplicateNavigation();
+
+    document.querySelectorAll('[data-delta-tab]').forEach(b=>b.onclick=()=>{
+      state.deltaLab.tab=b.dataset.deltaTab;
+      save();render();
+    });
+
+    document.getElementById('resetDeltaDraft')?.addEventListener('click',()=>{
+      if(!confirm('Reset the current Delta Pokémon draft?'))return;
+      state.deltaLab.draft=blankDeltaDraft();
+      save();render();
+    });
+
+    document.getElementById('deltaPokemonForm')?.addEventListener('submit',e=>{
+      e.preventDefault();
+      const delta=deltaFromForm(e.target);
+      saveDeltaRecord(delta);
+      save();
+      alert(`${delta.name} was saved to the Delta Library.`);
+      state.deltaLab.tab='library';
+      render();
+    });
+
+    document.getElementById('saveAndExportDelta')?.addEventListener('click',()=>{
+      const form=document.getElementById('deltaPokemonForm');
+      const delta=deltaFromForm(form);
+      saveDeltaRecord(delta);
+      save();
+      exportDeltaFile([delta],`${slug(delta.name)}-delta-pokemon.json`);
+      render();
+    });
+
+    document.querySelectorAll('[data-edit-delta]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.editDelta);
+      if(!delta)return;
+      state.deltaLab.draft=structuredClone(delta);
+      state.deltaLab.tab='builder';
+      save();render();
+    });
+
+    document.querySelectorAll('[data-export-delta]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.exportDelta);
+      if(delta)exportDeltaFile([delta],`${slug(delta.name)}-delta-pokemon.json`);
+    });
+
+    document.querySelectorAll('[data-create-delta-pokemon]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.createDeltaPokemon);
+      if(delta)createPokemonFromDelta(delta);
+    });
+
+    document.querySelectorAll('[data-delete-delta]').forEach(b=>b.onclick=()=>{
+      const delta=allDeltaRecords().find(x=>x.id===b.dataset.deleteDelta);
+      if(!confirm(`Delete ${delta?.name||'this Delta Pokémon'}?`))return;
+      state.contentLibrary=state.contentLibrary.filter(x=>!(x.type==='deltaPokemon'&&x.data?.id===b.dataset.deleteDelta));
+      save();render();
+    });
+
+    document.getElementById('exportAllDelta')?.addEventListener('click',()=>{
+      exportDeltaFile(allDeltaRecords(),'journey-companion-delta-pokemon-pack.json');
+      save();render();
+    });
+
+    document.getElementById('importDeltaPack')?.addEventListener('change',e=>{
+      const file=e.target.files[0];
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        const status=document.getElementById('deltaImportStatus');
+        try{
+          const pack=JSON.parse(reader.result);
+          const result=importDeltaPack(pack);
+          state.deltaLab.lastImport=`${file.name}: ${result.imported} imported, ${result.updated} updated`;
+          save();
+          if(status)status.innerHTML=`<strong>Import complete.</strong><br>${result.imported} new Delta Pokémon imported; ${result.updated} updated.`;
+          setTimeout(()=>render(),700);
+        }catch(error){
+          if(status)status.innerHTML=`<strong>Import failed.</strong><br>${esc(error.message)}`;
+        }
+      };
+      reader.readAsText(file);
+    });
+  };
+
+  /* Migrate and finalize. */
+  ensureSolarNexus();
+  state.core=state.core||{};
+  state.core.deltaLabPatch='Delta Pokémon portable import/export and Solar Nexus';
+  state.core.navigationCleanup='Single inline Back navigation';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Universal Content Pack System */
+.jcc-tabs{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(120px,1fr));
+  gap:6px;
+  padding:5px;
+  margin:14px 0;
+  border-radius:16px;
+  background:#e8edf3;
+  overflow-x:auto
+}
+.jcc-tabs button{
+  border:0;
+  border-radius:11px;
+  padding:10px;
+  background:transparent;
+  color:var(--muted);
+  font-weight:900;
+  white-space:nowrap
+}
+.jcc-tabs button.active{
+  background:var(--paper);
+  color:var(--navy);
+  box-shadow:0 4px 12px rgba(23,32,51,.08)
+}
+.jcc-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px
+}
+.jcc-card{border-left:5px solid #315f91}
+.jcc-pack-card{border-left:5px solid #8a4fb3}
+.jcc-content-types{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px
+}
+.jcc-type{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:8px;
+  align-items:start;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--paper)
+}
+.jcc-type input{margin-top:3px}
+.jcc-preview{
+  max-height:420px;
+  overflow:auto;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#101822;
+  color:#dce8f5;
+  white-space:pre-wrap;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.78rem
+}
+.jcc-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px
+}
+.jcc-summary>div{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  text-align:center
+}
+.jcc-summary span{
+  display:block;
+  color:var(--muted);
+  font-size:.72rem;
+  font-weight:850
+}
+.jcc-summary strong{
+  font-size:1.2rem;
+  color:var(--navy)
+}
+.jcc-status{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#f5f7fa
+}
+.jcc-history{
+  display:grid;
+  gap:9px
+}
+.jcc-history-item{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:10px;
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--paper)
+}
+@media(max-width:760px){
+  .jcc-tabs{grid-template-columns:repeat(5,120px)}
+  .jcc-grid{grid-template-columns:1fr}
+  .jcc-content-types{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jcc-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .jcc-history-item{grid-template-columns:1fr}
+}
+@media(max-width:460px){
+  .jcc-content-types{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+/* ==========================================================
+   JOURNEY COMPANION UNIVERSAL CONTENT PACKS
+   Format: journey-companion-content-pack
+   ========================================================== */
+(function installUniversalContentPacks(){
+  const PACK_FORMAT='journey-companion-content-pack';
+  const PACK_VERSION=1;
+  const EXTENSION='.jccpack';
+
+  state.contentPackCenter=state.contentPackCenter||{
+    tab:'builder',
+    selections:{},
+    history:[],
+    lastImport:null,
+    lastExport:null
+  };
+
+  const CONTENT_TYPES=[
+    ['deltaPokemon','Delta Pokémon'],
+    ['species','Custom Species'],
+    ['moves','Custom Moves'],
+    ['abilities','Custom Abilities'],
+    ['items','Custom Items'],
+    ['archetypes','Trainer Archetypes'],
+    ['classes','Trainer Classes'],
+    ['conditions','Status Conditions'],
+    ['weather','Weather'],
+    ['terrain','Terrain'],
+    ['rooms','Rooms / Field Effects'],
+    ['badges','Badges'],
+    ['rules','House Rules'],
+    ['teaRecipes','Tea Recipes'],
+    ['pokemonFoods','Pokémon Foods'],
+    ['npcs','NPCs'],
+    ['trainers','Trainers'],
+    ['quests','Quests'],
+    ['encounters','Encounters'],
+    ['gyms','Gyms'],
+    ['locations','Locations'],
+    ['routes','Routes'],
+    ['factions','Factions'],
+    ['sessions','Sessions'],
+    ['timeline','Timeline']
+  ];
+
+  function packId(prefix='pack'){
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  }
+
+  function contentTypeLabel(type){
+    return CONTENT_TYPES.find(x=>x[0]===type)?.[1]||type;
+  }
+
+  function customEntriesByType(type){
+    return (state.contentLibrary||[])
+      .filter(x=>x.type===type&&!x.deleted&&!x.archived)
+      .map(x=>x.data);
+  }
+
+  function collectContent(type){
+    switch(type){
+      case 'deltaPokemon': return customEntriesByType('deltaPokemon');
+      case 'species': return customEntriesByType('species');
+      case 'moves': return customEntriesByType('moves');
+      case 'abilities': return customEntriesByType('abilities');
+      case 'items': return customEntriesByType('items');
+      case 'archetypes': return customEntriesByType('archetypes');
+      case 'classes': return customEntriesByType('classes');
+      case 'conditions': return customEntriesByType('conditions');
+      case 'weather': return customEntriesByType('weather');
+      case 'terrain': return customEntriesByType('terrain');
+      case 'rooms': return customEntriesByType('rooms');
+      case 'badges': return customEntriesByType('badges');
+      case 'rules': return customEntriesByType('rules');
+      case 'teaRecipes': return customEntriesByType('teaRecipes');
+      case 'pokemonFoods': return customEntriesByType('pokemonFoods');
+      case 'npcs': return state.npcs.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'trainers': return state.trainers.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'quests': return state.quests.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'encounters': return state.encounters.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'gyms': return state.gyms.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'locations': return state.locations.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'routes': return state.routes.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'factions': return state.factions.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'sessions': return state.sessions.filter(x=>x.campaignId===state.activeCampaignId);
+      case 'timeline': return state.timeline.filter(x=>x.campaignId===state.activeCampaignId);
+      default: return [];
+    }
+  }
+
+  function selectedTypes(){
+    return CONTENT_TYPES.map(x=>x[0]).filter(type=>state.contentPackCenter.selections[type]);
+  }
+
+  function buildContentPack(types=selectedTypes(),meta={}){
+    const content={};
+    types.forEach(type=>content[type]=collectContent(type));
+    return {
+      format:PACK_FORMAT,
+      version:PACK_VERSION,
+      extension:EXTENSION,
+      app:'Journey Companion v2',
+      packId:meta.packId||packId('jcc'),
+      name:meta.name||'Journey Companion Content Pack',
+      description:meta.description||'',
+      author:meta.author||'',
+      campaign:meta.includeCampaign?campaign():null,
+      exportedAt:new Date().toISOString(),
+      content
+    };
+  }
+
+  function countPackContent(pack){
+    return Object.values(pack.content||{}).reduce((sum,arr)=>sum+(Array.isArray(arr)?arr.length:0),0);
+  }
+
+  function universalContentPackView(){
+    const tab=state.contentPackCenter.tab||'builder';
+    return `<section class="hero compact">
+      <span class="badge professor">Universal Content Packs</span>
+      <h1>Content Pack Center</h1>
+      <p>Bundle custom Pokémon, Abilities, Moves, quests, NPCs, maps, and campaign content into one importable file.</p>
+    </section>
+    <div class="jcc-tabs">
+      ${[
+        ['builder','Build Pack'],['preview','Preview'],
+        ['import','Import'],['history','History'],['help','Format Guide']
+      ].map(([k,l])=>`<button data-jcc-tab="${k}" class="${tab===k?'active':''}">${l}</button>`).join('')}
+    </div>
+    ${tab==='preview'?contentPackPreview():
+      tab==='import'?contentPackImport():
+      tab==='history'?contentPackHistory():
+      tab==='help'?contentPackHelp():
+      contentPackBuilder()}`;
+  }
+
+  function contentPackBuilder(){
+    return `<form id="contentPackBuilderForm" class="card jcc-pack-card form">
+      <h2>Create a Universal Content Pack</h2>
+      <div class="grid two">
+        ${field('Pack name','packName','My Journey Companion Pack','text','required')}
+        ${field('Author','author','')}
+      </div>
+      ${textarea('Description','description','')}
+      <label class="list-item">
+        <span><strong>Include campaign metadata</strong><br><span class="muted">Adds campaign name, region, and description to the pack.</span></span>
+        <input type="checkbox" name="includeCampaign">
+      </label>
+
+      <h3 class="section-gap">Choose Content</h3>
+      <div class="jcc-content-types">
+        ${CONTENT_TYPES.map(([type,label])=>{
+          const count=collectContent(type).length;
+          return `<label class="jcc-type">
+            <input type="checkbox" name="contentType" value="${type}" ${state.contentPackCenter.selections[type]?'checked':''} ${count?'':'disabled'}>
+            <span><strong>${esc(label)}</strong><br><span class="muted">${count} available</span></span>
+          </label>`;
+        }).join('')}
+      </div>
+
+      <div class="grid two section-gap">
+        <button type="button" class="btn secondary" id="selectAllPackContent">Select All Available</button>
+        <button type="button" class="btn secondary" id="clearPackSelection">Clear Selection</button>
+      </div>
+
+      <div class="grid two section-gap">
+        <button type="button" class="btn secondary" id="previewContentPack">Preview Pack</button>
+        <button class="btn primary">Download .jccpack</button>
+      </div>
+    </form>`;
+  }
+
+  function currentPackPreview(){
+    const meta=state.contentPackCenter.previewMeta||{
+      name:'Journey Companion Content Pack',
+      description:'',
+      author:'',
+      includeCampaign:false
+    };
+    return buildContentPack(selectedTypes(),meta);
+  }
+
+  function contentPackPreview(){
+    const pack=currentPackPreview();
+    const typeCount=Object.keys(pack.content||{}).length;
+    return `<section class="card jcc-card">
+      <h2>Content Pack Preview</h2>
+      <div class="jcc-summary">
+        <div><span>Content Types</span><strong>${typeCount}</strong></div>
+        <div><span>Total Records</span><strong>${countPackContent(pack)}</strong></div>
+        <div><span>Format Version</span><strong>${PACK_VERSION}</strong></div>
+        <div><span>Extension</span><strong>${EXTENSION}</strong></div>
+      </div>
+      <button class="btn primary full section-gap" id="downloadPreviewPack">Download This Pack</button>
+      <pre class="jcc-preview section-gap">${esc(JSON.stringify(pack,null,2))}</pre>
+    </section>`;
+  }
+
+  function contentPackImport(){
+    return `<section class="card jcc-pack-card">
+      <h2>Import a Content Pack</h2>
+      <p class="muted">Import a <strong>.jccpack</strong> file or a compatible JSON file generated by Journey Companion or ChatGPT.</p>
+      <label class="btn primary file-label">Choose Content Pack
+        <input id="importContentPack" type="file" accept=".jccpack,application/json,.json">
+      </label>
+      <div id="contentPackImportStatus" class="jcc-status section-gap">
+        ${state.contentPackCenter.lastImport
+          ? `<strong>Last import:</strong><br>${esc(state.contentPackCenter.lastImport)}`
+          : 'No content pack imported in this session.'}
+      </div>
+    </section>`;
+  }
+
+  function contentPackHistory(){
+    const rows=(state.contentPackCenter.history||[]).slice().reverse();
+    return `<div class="section-title"><h2>Pack History</h2><button class="btn danger" id="clearContentPackHistory">Clear</button></div>
+    <div class="jcc-history">${rows.map(x=>`
+      <div class="jcc-history-item">
+        <time>${esc(new Date(x.date).toLocaleString())}</time>
+        <div><span class="tag">${esc(x.action)}</span><strong style="display:block;margin-top:5px">${esc(x.name||'Content Pack')}</strong><p class="muted">${esc(x.details||'')}</p></div>
+      </div>`).join('')||empty('No content pack activity recorded.')}</div>`;
+  }
+
+  function contentPackHelp(){
+    return `<section class="card jcc-card">
+      <h2>Journey Companion Content Pack Format</h2>
+      <p>The standard file extension is <strong>.jccpack</strong>. The file itself contains JSON and can also be imported with a <strong>.json</strong> extension.</p>
+      <div class="jc2-feature-list section-gap">
+        <div class="jc2-feature"><span class="jc2-feature-icon">1</span><span><strong>Design content with ChatGPT</strong><br><span class="muted">Ask for a Delta Pokémon, custom Ability, quest, NPC, Gym, item set, or complete adventure.</span></span></div>
+        <div class="jc2-feature"><span class="jc2-feature-icon">2</span><span><strong>Download the generated pack</strong><br><span class="muted">ChatGPT can provide a .jccpack file following this format.</span></span></div>
+        <div class="jc2-feature"><span class="jc2-feature-icon">3</span><span><strong>Import it in the app</strong><br><span class="muted">Open Tools → Content Packs → Import and choose the file.</span></span></div>
+        <div class="jc2-feature"><span class="jc2-feature-icon">4</span><span><strong>Use the new content immediately</strong><br><span class="muted">Imported custom content becomes available in the appropriate builders and campaign tools.</span></span></div>
+      </div>
+      <pre class="jcc-preview section-gap">${esc(JSON.stringify({
+        format:PACK_FORMAT,
+        version:PACK_VERSION,
+        extension:EXTENSION,
+        app:'Journey Companion v2',
+        packId:'jcc_example',
+        name:'Example Pack',
+        description:'Example portable content pack',
+        author:'Creator',
+        exportedAt:'ISO date',
+        content:{
+          deltaPokemon:[],
+          abilities:[],
+          moves:[],
+          items:[],
+          quests:[],
+          npcs:[]
+        }
+      },null,2))}</pre>
+    </section>`;
+  }
+
+  function historyEntry(action,name,details){
+    state.contentPackCenter.history=state.contentPackCenter.history||[];
+    state.contentPackCenter.history.push({
+      id:packId('history'),
+      action,name,details,
+      date:new Date().toISOString()
+    });
+    state.contentPackCenter.history=state.contentPackCenter.history.slice(-100);
+  }
+
+  function downloadPack(pack){
+    const safeName=slug(pack.name||'journey-companion-content-pack')||'journey-companion-content-pack';
+    const blob=new Blob([JSON.stringify(pack,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download=`${safeName}${EXTENSION}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    state.contentPackCenter.lastExport=new Date().toISOString();
+    historyEntry('Export',pack.name,`${Object.keys(pack.content||{}).length} content types • ${countPackContent(pack)} records`);
+  }
+
+  function validateContentPack(pack){
+    if(!pack||pack.format!==PACK_FORMAT)return 'This is not a Journey Companion Content Pack.';
+    if(Number(pack.version)!==PACK_VERSION)return `Unsupported pack version: ${pack.version}`;
+    if(!pack.content||typeof pack.content!=='object'||Array.isArray(pack.content))return 'The content object is missing.';
+    return '';
+  }
+
+  function contentIdentity(type,record){
+    if(!record||typeof record!=='object')return JSON.stringify(record);
+    return String(
+      record.id||
+      record.name||
+      record.title||
+      record.key||
+      `${type}_${JSON.stringify(record).slice(0,80)}`
+    ).toLowerCase();
+  }
+
+  function upsertCustomContent(type,record){
+    state.contentLibrary=state.contentLibrary||[];
+    const identity=contentIdentity(type,record);
+    const existing=state.contentLibrary.find(x=>
+      x.type===type&&!x.deleted&&contentIdentity(type,x.data)===identity
+    );
+    if(existing){
+      existing.data=record;
+      existing.updatedAt=new Date().toISOString();
+      return 'updated';
+    }
+    state.contentLibrary.push({
+      id:packId('content'),
+      campaignId:state.activeCampaignId,
+      type,
+      data:record,
+      createdAt:new Date().toISOString(),
+      archived:false,
+      deleted:false
+    });
+    return 'imported';
+  }
+
+  function upsertCampaignRecord(collectionName,record){
+    const collection=state[collectionName]=state[collectionName]||[];
+    const identity=contentIdentity(collectionName,record);
+    const existing=collection.find(x=>contentIdentity(collectionName,x)===identity);
+    const normalized={...record,campaignId:state.activeCampaignId};
+    if(existing){
+      Object.assign(existing,normalized);
+      return 'updated';
+    }
+    collection.push({...normalized,id:record.id||packId(collectionName)});
+    return 'imported';
+  }
+
+  function importContentPack(pack){
+    const error=validateContentPack(pack);
+    if(error)throw new Error(error);
+
+    let imported=0,updated=0,skipped=0;
+    const campaignCollections=new Set([
+      'npcs','trainers','quests','encounters','gyms','locations',
+      'routes','factions','sessions','timeline'
+    ]);
+
+    Object.entries(pack.content||{}).forEach(([type,records])=>{
+      if(!Array.isArray(records)){skipped++;return}
+      records.forEach(record=>{
+        let result;
+        if(campaignCollections.has(type)){
+          result=upsertCampaignRecord(type,record);
+        }else{
+          result=upsertCustomContent(type,record);
+        }
+        if(result==='imported')imported++;
+        else if(result==='updated')updated++;
+        else skipped++;
+      });
+    });
+
+    historyEntry('Import',pack.name||'Imported Pack',`${imported} imported • ${updated} updated • ${skipped} skipped`);
+    state.contentPackCenter.lastImport=`${pack.name||'Content Pack'}: ${imported} imported, ${updated} updated, ${skipped} skipped`;
+    return {imported,updated,skipped};
+  }
+
+  /* Convert Delta Packs automatically for backward compatibility. */
+  function convertLegacyDeltaPack(pack){
+    if(pack?.format!=='journey-companion-delta-pokemon')return pack;
+    return {
+      format:PACK_FORMAT,
+      version:PACK_VERSION,
+      extension:EXTENSION,
+      app:'Journey Companion v2',
+      packId:packId('legacyDelta'),
+      name:'Imported Delta Pokémon Pack',
+      description:'Automatically converted from the earlier Delta Pack format.',
+      author:'',
+      exportedAt:new Date().toISOString(),
+      content:{
+        deltaPokemon:pack.deltaPokemon||[],
+        abilities:pack.abilities||[]
+      }
+    };
+  }
+
+  /* Add Content Packs to Tools. */
+  const previousToolsViewContentPack=toolsView;
+  toolsView=function(){
+    if(state.toolTab==='contentPacks')return universalContentPackView();
+    const original=previousToolsViewContentPack();
+    return original.replace(
+      '<button data-tool="deltaLab"',
+      `<button data-tool="contentPacks" class="${state.toolTab==='contentPacks'?'active':''}">Content Packs</button><button data-tool="deltaLab"`
+    );
+  };
+
+  const previousBindContentPack=bind;
+  bind=function(){
+    previousBindContentPack();
+
+    document.querySelectorAll('[data-jcc-tab]').forEach(b=>b.onclick=()=>{
+      state.contentPackCenter.tab=b.dataset.jccTab;
+      save();render();
+    });
+
+    document.getElementById('selectAllPackContent')?.addEventListener('click',()=>{
+      CONTENT_TYPES.forEach(([type])=>{
+        state.contentPackCenter.selections[type]=collectContent(type).length>0;
+      });
+      save();render();
+    });
+
+    document.getElementById('clearPackSelection')?.addEventListener('click',()=>{
+      state.contentPackCenter.selections={};
+      save();render();
+    });
+
+    document.getElementById('previewContentPack')?.addEventListener('click',()=>{
+      const form=document.getElementById('contentPackBuilderForm');
+      const fd=new FormData(form);
+      state.contentPackCenter.selections={};
+      fd.getAll('contentType').forEach(type=>state.contentPackCenter.selections[type]=true);
+      state.contentPackCenter.previewMeta={
+        name:String(fd.get('packName')||'Journey Companion Content Pack'),
+        author:String(fd.get('author')||''),
+        description:String(fd.get('description')||''),
+        includeCampaign:fd.get('includeCampaign')==='on'
+      };
+      state.contentPackCenter.tab='preview';
+      save();render();
+    });
+
+    document.getElementById('contentPackBuilderForm')?.addEventListener('submit',e=>{
+      e.preventDefault();
+      const fd=new FormData(e.target);
+      const types=fd.getAll('contentType');
+      if(!types.length)return alert('Select at least one content type.');
+      state.contentPackCenter.selections={};
+      types.forEach(type=>state.contentPackCenter.selections[type]=true);
+      const pack=buildContentPack(types,{
+        name:String(fd.get('packName')||'Journey Companion Content Pack'),
+        author:String(fd.get('author')||''),
+        description:String(fd.get('description')||''),
+        includeCampaign:fd.get('includeCampaign')==='on'
+      });
+      downloadPack(pack);
+      save();render();
+    });
+
+    document.getElementById('downloadPreviewPack')?.addEventListener('click',()=>{
+      downloadPack(currentPackPreview());
+      save();render();
+    });
+
+    document.getElementById('importContentPack')?.addEventListener('change',e=>{
+      const file=e.target.files[0];
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        const status=document.getElementById('contentPackImportStatus');
+        try{
+          const raw=JSON.parse(reader.result);
+          const pack=convertLegacyDeltaPack(raw);
+          const result=importContentPack(pack);
+          save();
+          if(status){
+            status.innerHTML=`<strong>Import complete.</strong><br>${result.imported} imported, ${result.updated} updated, ${result.skipped} skipped.`;
+          }
+          setTimeout(()=>render(),700);
+        }catch(error){
+          if(status)status.innerHTML=`<strong>Import failed.</strong><br>${esc(error.message)}`;
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('clearContentPackHistory')?.addEventListener('click',()=>{
+      if(confirm('Clear content pack history?')){
+        state.contentPackCenter.history=[];
+        save();render();
+      }
+    });
+  };
+
+  state.core=state.core||{};
+  state.core.contentPackPatch='Universal Journey Companion Content Packs';
+  state.core.contentPackFormat=PACK_FORMAT;
+  state.core.contentPackVersion=PACK_VERSION;
   save();
   render();
 })();
