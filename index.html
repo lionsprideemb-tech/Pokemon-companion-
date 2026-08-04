@@ -6914,6 +6914,674 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 })();
 </script>
 
+
+<style>
+/* Trainer Stat Point Distribution + Universal Pokémon Ability Assignment */
+.stat-point-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px
+}
+.stat-point-card{
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper)
+}
+.stat-point-card label{
+  display:block;
+  font-weight:900;
+  margin-bottom:6px
+}
+.stat-point-value{
+  display:inline-flex;
+  min-width:38px;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  font-weight:900;
+  margin-left:6px
+}
+.stat-point-value.positive{background:#e8f7ef;color:#17623f}
+.stat-point-value.negative{background:#fdebea;color:#9b2d2a}
+.stat-point-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:10px
+}
+.stat-point-summary span{
+  padding:6px 9px;
+  border-radius:999px;
+  background:#f5f7fa;
+  border:1px solid var(--line);
+  font-size:.76rem;
+  font-weight:850
+}
+.any-ability-card{border-left:5px solid #8a4fb3}
+.ability-result{
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#f5f7fa;
+  margin-top:9px;
+  white-space:pre-wrap
+}
+@media(max-width:720px){
+  .stat-point-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:460px){
+  .stat-point-grid{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+/* Stat Point and Universal Ability Update
+   Trainer stat points use one each of +1, +2, +3, -1, -2, and -3.
+   Pokémon may be assigned any official or custom Ability, regardless of species.
+*/
+(function installStatPointAndAbilityUpdate(){
+  const STAT_POINT_VALUES=[-3,-2,-1,1,2,3];
+
+  function ensureTrainerStatPoints(t){
+    t.statModifiers=t.statModifiers||{};
+    const used=STATS.map(s=>Number(t.statModifiers[s])).filter(v=>STAT_POINT_VALUES.includes(v));
+    if(used.length!==6||new Set(used).size!==6){
+      STATS.forEach((s,i)=>t.statModifiers[s]=STAT_POINT_VALUES[i]);
+    }
+    return t.statModifiers;
+  }
+
+  function statPointOptions(selected){
+    return STAT_POINT_VALUES.map(v=>`<option value="${v}" ${Number(selected)===v?'selected':''}>${v>0?'+':''}${v}</option>`).join('');
+  }
+
+  function statPointEditor(t,prefix='modifier_'){
+    const mods=ensureTrainerStatPoints(t);
+    return `<section class="card section-gap">
+      <h2>Trainer Stat Points</h2>
+      <p class="muted">Assign each modifier exactly once: <strong>+1, +2, +3, −1, −2, and −3</strong>. These are recorded separately from the Trainer's Stat Dice.</p>
+      <div class="stat-point-grid">
+        ${STATS.map(s=>`<div class="stat-point-card"><label>${esc(s)}</label><select name="${prefix}${s}">${statPointOptions(mods[s])}</select></div>`).join('')}
+      </div>
+      <div class="stat-point-summary">
+        <span>Positive points: +1, +2, +3</span>
+        <span>Negative points: −1, −2, −3</span>
+        <span>Net total: 0</span>
+      </div>
+    </section>`;
+  }
+
+  function validateAndSaveStatPoints(form,t,prefix='modifier_'){
+    const values=STATS.map(s=>Number(new FormData(form).get(`${prefix}${s}`)));
+    if(values.some(v=>!STAT_POINT_VALUES.includes(v))){
+      alert('Every Trainer stat must use one modifier from +1, +2, +3, −1, −2, or −3.');
+      return false;
+    }
+    if(new Set(values).size!==6){
+      alert('Use each stat modifier exactly once: +1, +2, +3, −1, −2, and −3.');
+      return false;
+    }
+    t.statModifiers=t.statModifiers||{};
+    STATS.forEach((s,i)=>t.statModifiers[s]=values[i]);
+    return true;
+  }
+
+  function trainerStatPointDisplay(t){
+    const mods=ensureTrainerStatPoints(t);
+    return `<section class="card section-gap">
+      <h3>Trainer Stat Point Modifiers</h3>
+      <div class="stat-point-grid">
+        ${STATS.map(s=>{
+          const v=Number(mods[s]||0);
+          return `<div class="stat-point-card"><strong>${esc(s)}</strong><span class="stat-point-value ${v>0?'positive':'negative'}">${v>0?'+':''}${v}</span><div class="muted small">Stat Die: ${esc(t.stats?.[s]||'—')}</div></div>`;
+        }).join('')}
+      </div>
+    </section>`;
+  }
+
+  /* Add point selection directly into Trainer creation step 3. */
+  const previousTrainerWizardPoints=trainerWizard;
+  trainerWizard=function(){
+    const page=previousTrainerWizardPoints();
+    if((state.trainerWizardStep||1)!==3)return page;
+    const t=state.trainerDraft;
+    ensureTrainerStatPoints(t);
+    return page.replace(
+      '<div class="notice">Use each die exactly once.</div>',
+      `<div class="notice">Use each die exactly once.</div>${statPointEditor(t)}`
+    );
+  };
+
+  /* Add editable point distribution to the Stats & Skills page. */
+  const previousTrainerStatsSkillsPoints=trainerStatsSkills;
+  trainerStatsSkills=function(t){
+    return previousTrainerStatsSkillsPoints(t).replace(
+      '<h2>Skills</h2>',
+      `${statPointEditor(t)}<h2>Skills</h2>`
+    );
+  };
+
+  /* Show the current point distribution on the Trainer overview. */
+  const previousTrainerOverviewPoints=trainerOverview;
+  trainerOverview=function(t){
+    return previousTrainerOverviewPoints(t)+trainerStatPointDisplay(t);
+  };
+
+  function allAssignableAbilities(){
+    const names=new Set();
+    if(typeof allAbilityNames==='function')allAbilityNames().forEach(x=>names.add(x));
+    if(typeof V06_ABILITY_DATABASE!=='undefined')V06_ABILITY_DATABASE.forEach(x=>names.add(x.name));
+    (state.contentLibrary||[]).filter(x=>x.type==='abilities'&&!x.deleted&&!x.archived).forEach(x=>names.add(x.data?.name));
+    return [...names].filter(Boolean).sort();
+  }
+
+  function assignableAbilityRecord(name){
+    if(typeof abilityRecord==='function'){
+      const found=abilityRecord(name);
+      if(found)return found;
+    }
+    const custom=(state.contentLibrary||[]).find(x=>x.type==='abilities'&&!x.deleted&&!x.archived&&x.data?.name===name);
+    return custom?{name:custom.data.name,effect:custom.data.effect||custom.data.notes||'Custom Ability'}:null;
+  }
+
+  function universalAbilityPanel(p){
+    const options=allAssignableAbilities();
+    const record=assignableAbilityRecord(p.ability);
+    return `<section class="card any-ability-card section-gap">
+      <h2>Professor Ability Override</h2>
+      <p class="muted">Assign any official or custom Ability to this Pokémon, even when its species does not normally receive it.</p>
+      <form id="universalAbilityForm" class="form">
+        <div class="field"><label>Ability</label>
+          <input id="universalAbilityInput" name="ability" list="universalAbilityList" value="${esc(p.ability||'')}" placeholder="Search or type any Ability" required>
+          <datalist id="universalAbilityList">${options.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>
+        </div>
+        <div id="universalAbilityDescription" class="ability-result">${record?`<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`:'Choose or type an Ability.'}</div>
+        <label class="list-item"><span><strong>Professor Override</strong><br><span class="muted">Marks this Ability as intentionally noncanonical for the species.</span></span><input type="checkbox" name="override" ${p.abilityOverride?'checked':''}></label>
+        ${textarea('Override notes','abilityOverrideNotes',p.abilityOverrideNotes||'')}
+        <button class="btn primary">Assign Ability</button>
+      </form>
+    </section>`;
+  }
+
+  const previousPokemonDetailAbility=pokemonDetail;
+  pokemonDetail=function(){
+    const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+    return previousPokemonDetailAbility()+universalAbilityPanel(p);
+  };
+
+  const previousBindStatAbility=bind;
+  bind=function(){
+    previousBindStatAbility();
+
+    /* Save stat points during Trainer creation without interfering with the existing wizard. */
+    const wizard=document.getElementById('trainerWizard');
+    if(wizard&&(state.trainerWizardStep||1)===3){
+      const existingHandler=wizard.onsubmit;
+      wizard.onsubmit=function(event){
+        const t=state.trainerDraft;
+        if(!validateAndSaveStatPoints(wizard,t))return;
+        return existingHandler?.call(this,event);
+      };
+    }
+
+    /* Extend the existing Stats & Skills save handler. */
+    const statsForm=document.getElementById('trainerStatsSkillsForm');
+    if(statsForm){
+      const existingHandler=statsForm.onsubmit;
+      statsForm.onsubmit=function(event){
+        const t=trainer();
+        if(!validateAndSaveStatPoints(statsForm,t))return;
+        return existingHandler?.call(this,event);
+      };
+    }
+
+    const abilityInput=document.getElementById('universalAbilityInput');
+    const abilityDescription=document.getElementById('universalAbilityDescription');
+    abilityInput?.addEventListener('input',()=>{
+      const record=assignableAbilityRecord(abilityInput.value);
+      abilityDescription.innerHTML=record
+        ? `<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`
+        : '<span class="muted">This will be saved as a custom typed Ability name.</span>';
+    });
+
+    document.getElementById('universalAbilityForm')?.addEventListener('submit',event=>{
+      event.preventDefault();
+      const data=Object.fromEntries(new FormData(event.target));
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      p.ability=String(data.ability||'').trim();
+      p.abilityOverride=data.override==='on';
+      p.abilityOverrideNotes=data.abilityOverrideNotes||'';
+      p.availableAbilities=Array.isArray(p.availableAbilities)?p.availableAbilities:[];
+      if(p.ability&&!p.availableAbilities.includes(p.ability))p.availableAbilities.push(p.ability);
+      p.abilityHistory=Array.isArray(p.abilityHistory)?p.abilityHistory:[];
+      p.abilityHistory.push({
+        id:id('abilityChange'),
+        ability:p.ability,
+        override:p.abilityOverride,
+        notes:p.abilityOverrideNotes,
+        date:new Date().toISOString()
+      });
+      if(typeof professorLogEntry==='function'){
+        professorLogEntry(`Assigned Ability: ${p.ability}`,`${p.nickname||p.species}${p.abilityOverride?' • Professor override':''}`);
+      }
+      save();
+      alert(`${p.nickname||p.species} now has ${p.ability}.`);
+      render();
+    });
+  };
+
+  /* Migrate existing Trainers and Pokémon safely. */
+  state.trainers.forEach(ensureTrainerStatPoints);
+  state.pokemon.forEach(p=>{
+    p.abilityOverride=!!p.abilityOverride;
+    p.abilityOverrideNotes=p.abilityOverrideNotes||'';
+    p.abilityHistory=Array.isArray(p.abilityHistory)?p.abilityHistory:[];
+  });
+  state.core=state.core||{};
+  state.core.statPointAbilityPatch='Trainer ±1/±2/±3 Points and Universal Pokémon Abilities';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Pokémon PC Box System */
+.pc-tabs{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(120px,1fr));
+  gap:6px;
+  background:#e8edf3;
+  border-radius:16px;
+  padding:5px;
+  margin:14px 0
+}
+.pc-tabs button{
+  border:0;
+  background:transparent;
+  padding:10px;
+  border-radius:11px;
+  font-weight:900;
+  color:var(--muted)
+}
+.pc-tabs button.active{
+  background:var(--paper);
+  color:var(--navy);
+  box-shadow:0 4px 12px rgba(23,32,51,.08)
+}
+.pc-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px
+}
+.pc-summary>div{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  text-align:center
+}
+.pc-summary span{
+  display:block;
+  color:var(--muted);
+  font-size:.72rem;
+  font-weight:850
+}
+.pc-summary strong{
+  font-size:1.2rem;
+  color:var(--navy)
+}
+.pc-box-tabs{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(100px,1fr));
+  gap:7px;
+  margin:12px 0
+}
+.pc-box-tabs button{
+  padding:9px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--paper);
+  color:var(--navy);
+  font-weight:850
+}
+.pc-box-tabs button.active{
+  background:var(--navy);
+  color:#fff
+}
+.pc-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px
+}
+.pc-card{
+  display:grid;
+  grid-template-columns:48px 1fr;
+  gap:10px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:var(--paper);
+  padding:10px;
+  text-align:left;
+  cursor:pointer;
+  min-height:74px
+}
+.pc-card:hover{
+  border-color:var(--blue);
+  box-shadow:0 7px 18px rgba(23,32,51,.08)
+}
+.pc-card-orb{
+  width:46px;
+  height:46px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,#edf3fa,#fff);
+  border:1px solid #dce3ec;
+  color:var(--navy);
+  font-weight:900
+}
+.pc-card strong,.pc-card span{display:block}
+.pc-card span{font-size:.75rem;color:var(--muted);margin-top:3px}
+.pc-storage-panel{border-left:5px solid #315f91}
+.pc-storage-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px
+}
+.pc-empty-slot{
+  min-height:74px;
+  border:1px dashed var(--line);
+  border-radius:15px;
+  background:rgba(255,255,255,.35)
+}
+.pc-box-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap
+}
+.pc-box-header input{
+  max-width:260px
+}
+@media(max-width:760px){
+  .pc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pc-box-tabs{grid-template-columns:repeat(2,minmax(100px,1fr))}
+}
+@media(max-width:460px){
+  .pc-grid{grid-template-columns:1fr}
+  .pc-summary{grid-template-columns:1fr}
+  .pc-storage-actions{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+/* Pokémon PC Box System
+   - Six-Pokémon active party
+   - Eight storage boxes with thirty slots each
+   - Automatic overflow storage when a Trainer catches more than six Pokémon
+   - Party-to-box, box-to-party, box-to-box, and party swap controls
+*/
+(function installPokemonPcBoxes(){
+  const PARTY_LIMIT=6;
+  const BOX_COUNT=8;
+  const BOX_CAPACITY=30;
+
+  state.pokemonStorageTab=state.pokemonStorageTab||'party';
+  state.activePokemonBox=Math.max(1,Math.min(BOX_COUNT,Number(state.activePokemonBox||1)));
+  state.pokemonBoxNames=state.pokemonBoxNames||{};
+
+  function ownedPokemon(trainerId){
+    return state.pokemon.filter(p=>p.trainerId===trainerId);
+  }
+
+  function normalizePokemonStorage(trainerId){
+    const owned=ownedPokemon(trainerId);
+    const explicitParty=owned.filter(p=>p.storageLocation==='party');
+    const unassigned=owned.filter(p=>!p.storageLocation);
+    let partyCount=explicitParty.length;
+
+    unassigned.forEach(p=>{
+      if(partyCount<PARTY_LIMIT){
+        p.storageLocation='party';
+        p.boxNumber=null;
+        partyCount++;
+      }else{
+        p.storageLocation='box';
+        p.boxNumber=firstAvailableBox(trainerId);
+      }
+    });
+
+    if(explicitParty.length>PARTY_LIMIT){
+      explicitParty.slice(PARTY_LIMIT).forEach(p=>{
+        p.storageLocation='box';
+        p.boxNumber=firstAvailableBox(trainerId,p.id);
+      });
+    }
+
+    owned.filter(p=>p.storageLocation==='box').forEach(p=>{
+      p.boxNumber=Math.max(1,Math.min(BOX_COUNT,Number(p.boxNumber||firstAvailableBox(trainerId,p.id))));
+    });
+  }
+
+  function partyPokemon(trainerId){
+    normalizePokemonStorage(trainerId);
+    return ownedPokemon(trainerId).filter(p=>p.storageLocation==='party').slice(0,PARTY_LIMIT);
+  }
+
+  function boxedPokemon(trainerId,boxNumber=null){
+    normalizePokemonStorage(trainerId);
+    return ownedPokemon(trainerId).filter(p=>
+      p.storageLocation==='box'&&(boxNumber===null||Number(p.boxNumber)===Number(boxNumber))
+    );
+  }
+
+  function boxCount(trainerId,boxNumber){
+    return boxedPokemon(trainerId,boxNumber).length;
+  }
+
+  function firstAvailableBox(trainerId,ignorePokemonId=null){
+    for(let box=1;box<=BOX_COUNT;box++){
+      const count=state.pokemon.filter(p=>
+        p.trainerId===trainerId&&p.id!==ignorePokemonId&&
+        p.storageLocation==='box'&&Number(p.boxNumber)===box
+      ).length;
+      if(count<BOX_CAPACITY)return box;
+    }
+    return BOX_COUNT;
+  }
+
+  function boxName(box){
+    return state.pokemonBoxNames[box]||`Box ${box}`;
+  }
+
+  function movePokemonToBox(pokemonId,boxNumber=null){
+    const p=state.pokemon.find(x=>x.id===pokemonId);
+    if(!p)return false;
+    const target=Math.max(1,Math.min(BOX_COUNT,Number(boxNumber||firstAvailableBox(p.trainerId,p.id))));
+    if(boxCount(p.trainerId,target)>=BOX_CAPACITY&&!(p.storageLocation==='box'&&Number(p.boxNumber)===target)){
+      alert(`${boxName(target)} is full.`);
+      return false;
+    }
+    p.storageLocation='box';
+    p.boxNumber=target;
+    if(typeof professorLogEntry==='function'){
+      professorLogEntry(`Sent ${p.nickname||p.species} to ${boxName(target)}`,'Pokémon PC storage updated.');
+    }
+    return true;
+  }
+
+  function movePokemonToParty(pokemonId){
+    const p=state.pokemon.find(x=>x.id===pokemonId);
+    if(!p)return false;
+    const currentParty=partyPokemon(p.trainerId);
+
+    if(currentParty.length>=PARTY_LIMIT){
+      const choices=currentParty.map((mon,i)=>`${i+1}. ${mon.nickname||mon.species}`).join('\n');
+      const answer=prompt(`The party is full. Choose a Pokémon to send to the PC:\n\n${choices}`);
+      const index=Number(answer)-1;
+      if(!Number.isInteger(index)||index<0||index>=currentParty.length)return false;
+      const outgoing=currentParty[index];
+      const oldBox=Number(p.boxNumber||firstAvailableBox(p.trainerId,outgoing.id));
+      outgoing.storageLocation='box';
+      outgoing.boxNumber=oldBox;
+    }
+
+    p.storageLocation='party';
+    p.boxNumber=null;
+    if(typeof professorLogEntry==='function'){
+      professorLogEntry(`Moved ${p.nickname||p.species} to the active party`,'Pokémon PC storage updated.');
+    }
+    return true;
+  }
+
+  /* Party helpers throughout the app now represent the active six-Pokémon team. */
+  party=function(trainerId){
+    return partyPokemon(trainerId);
+  };
+
+  function pcPokemonCard(p){
+    return `<button class="pc-card" data-pc-pokemon="${p.id}">
+      <span class="pc-card-orb">${esc((p.nickname||p.species||'?').slice(0,1).toUpperCase())}</span>
+      <span><strong>${esc(p.nickname||p.species)}</strong><span>${esc(p.species)} • Rank ${Number(p.rank||1)}${p.shiny?' • Shiny':''}</span></span>
+    </button>`;
+  }
+
+  function partyStorageView(t){
+    const mons=partyPokemon(t.id);
+    return `<div class="pc-summary">
+      <div><span>Active Party</span><strong>${mons.length}/${PARTY_LIMIT}</strong></div>
+      <div><span>PC Storage</span><strong>${boxedPokemon(t.id).length}</strong></div>
+      <div><span>Total Owned</span><strong>${ownedPokemon(t.id).length}</strong></div>
+    </div>
+    <div class="section-title"><h2>Active Party</h2><button class="btn primary" id="addDbPokemon">+ Catch Pokémon</button></div>
+    <div id="dbSlot"></div>
+    <div class="pokemon-grid">${mons.map(p=>`<button class="pokemon-card" data-pokemon="${p.id}"><div class="pokemon-orb">${esc((p.nickname||p.species)[0])}</div><div><strong>${esc(p.nickname||p.species)}</strong><span>${esc(p.species)} • Rank ${p.rank} • ${p.tn||0} TN</span></div><span class="chevron">›</span></button>`).join('')||empty('No Pokémon in the active party.')}</div>
+    ${mons.length>=PARTY_LIMIT?'<div class="notice section-gap">The party is full. Newly caught Pokémon are automatically sent to the first available PC Box.</div>':''}`;
+  }
+
+  function pcStorageView(t){
+    const box=state.activePokemonBox;
+    const mons=boxedPokemon(t.id,box);
+    const emptySlots=Math.max(0,BOX_CAPACITY-mons.length);
+    return `<div class="pc-summary">
+      <div><span>Current Box</span><strong>${boxName(box)}</strong></div>
+      <div><span>Stored Here</span><strong>${mons.length}/${BOX_CAPACITY}</strong></div>
+      <div><span>All PC Pokémon</span><strong>${boxedPokemon(t.id).length}</strong></div>
+    </div>
+    <div class="pc-box-tabs">${Array.from({length:BOX_COUNT},(_,i)=>i+1).map(n=>`<button data-pc-box="${n}" class="${box===n?'active':''}">${esc(boxName(n))}<br><span class="small">${boxCount(t.id,n)}/${BOX_CAPACITY}</span></button>`).join('')}</div>
+    <section class="card">
+      <div class="pc-box-header">
+        <div><h2 style="margin:0">${esc(boxName(box))}</h2><p class="muted">Select a Pokémon to view it or move it.</p></div>
+        <div class="inline-form"><input id="pcBoxNameInput" value="${esc(boxName(box))}" maxlength="24"><button class="btn secondary" id="renamePcBox">Rename</button></div>
+      </div>
+      <input id="pcBoxSearch" class="search section-gap" placeholder="Search this Box by nickname, species, Ability, or Type">
+      <div id="pcBoxGrid" class="pc-grid section-gap">${mons.map(pcPokemonCard).join('')}${Array.from({length:Math.min(emptySlots,6)},()=>'<div class="pc-empty-slot"></div>').join('')}</div>
+    </section>`;
+  }
+
+  const previousPokemonViewPc=pokemonView;
+  pokemonView=function(){
+    const t=trainer();
+    if(!t)return empty('Create a Trainer first.');
+    normalizePokemonStorage(t.id);
+    if(state.selectedPokemonId)return pokemonDetail();
+
+    return `<section class="hero compact"><h1>Pokémon</h1><p>Active party and PC Box storage</p></section>
+      <div class="pc-tabs">
+        <button data-pc-tab="party" class="${state.pokemonStorageTab==='party'?'active':''}">Active Party</button>
+        <button data-pc-tab="boxes" class="${state.pokemonStorageTab==='boxes'?'active':''}">PC Boxes</button>
+      </div>
+      ${state.pokemonStorageTab==='boxes'?pcStorageView(t):partyStorageView(t)}`;
+  };
+
+  function pokemonStoragePanel(p){
+    const inParty=p.storageLocation!=='box';
+    return `<section class="card pc-storage-panel section-gap">
+      <div class="stat">
+        <div><h2 style="margin:0">Pokémon Storage</h2><p class="muted">${inParty?'Currently in the active party.':`Currently stored in ${esc(boxName(Number(p.boxNumber||1)))}.`}</p></div>
+        <span class="badge ${inParty?'approved':'professor'}">${inParty?'Party':'PC Box'}</span>
+      </div>
+      <div class="pc-storage-actions section-gap">
+        ${inParty?`<button class="btn secondary" id="sendPokemonToPc">Send to PC</button>`:`<button class="btn primary" id="movePokemonToParty">Move to Party</button>`}
+        <div class="inline-form">
+          <select id="pokemonBoxDestination">${Array.from({length:BOX_COUNT},(_,i)=>i+1).map(n=>`<option value="${n}" ${Number(p.boxNumber)===n?'selected':''}>${esc(boxName(n))} (${boxCount(p.trainerId,n)}/${BOX_CAPACITY})</option>`).join('')}</select>
+          <button class="btn secondary" id="movePokemonToSelectedBox">${inParty?'Send':'Move'}</button>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  const previousPokemonDetailPc=pokemonDetail;
+  pokemonDetail=function(){
+    const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+    return previousPokemonDetailPc()+pokemonStoragePanel(p);
+  };
+
+  const previousBindPc=bind;
+  bind=function(){
+    previousBindPc();
+
+    document.querySelectorAll('[data-pc-tab]').forEach(b=>b.onclick=()=>{
+      state.pokemonStorageTab=b.dataset.pcTab;
+      save();render();
+    });
+
+    document.querySelectorAll('[data-pc-box]').forEach(b=>b.onclick=()=>{
+      state.activePokemonBox=Number(b.dataset.pcBox);
+      save();render();
+    });
+
+    document.querySelectorAll('[data-pc-pokemon]').forEach(b=>b.onclick=()=>{
+      state.selectedPokemonId=b.dataset.pcPokemon;
+      save();render();
+    });
+
+    document.getElementById('renamePcBox')?.addEventListener('click',()=>{
+      const value=document.getElementById('pcBoxNameInput').value.trim();
+      state.pokemonBoxNames[state.activePokemonBox]=value||`Box ${state.activePokemonBox}`;
+      save();render();
+    });
+
+    document.getElementById('pcBoxSearch')?.addEventListener('input',e=>{
+      const q=e.target.value.toLowerCase();
+      const mons=boxedPokemon(trainer().id,state.activePokemonBox).filter(p=>JSON.stringify(p).toLowerCase().includes(q));
+      document.getElementById('pcBoxGrid').innerHTML=mons.map(pcPokemonCard).join('')||empty('No matching Pokémon in this Box.');
+      document.querySelectorAll('[data-pc-pokemon]').forEach(b=>b.onclick=()=>{
+        state.selectedPokemonId=b.dataset.pcPokemon;save();render();
+      });
+    });
+
+    document.getElementById('sendPokemonToPc')?.addEventListener('click',()=>{
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      if(movePokemonToBox(p.id)){state.pokemonStorageTab='party';save();render()}
+    });
+
+    document.getElementById('movePokemonToParty')?.addEventListener('click',()=>{
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      if(movePokemonToParty(p.id)){state.pokemonStorageTab='party';save();render()}
+    });
+
+    document.getElementById('movePokemonToSelectedBox')?.addEventListener('click',()=>{
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      const box=Number(document.getElementById('pokemonBoxDestination').value);
+      if(movePokemonToBox(p.id,box)){state.pokemonStorageTab='boxes';state.activePokemonBox=box;save();render()}
+    });
+  };
+
+  /* Existing catches without storage information are migrated safely.
+     The first six remain in the party; overflow goes into PC Boxes. */
+  state.trainers.forEach(t=>normalizePokemonStorage(t.id));
+  state.core=state.core||{};
+  state.core.pokemonPcPatch='Eight PC Boxes, 30 slots each, six-Pokémon active party';
+  save();
+  render();
+})();
+</script>
+
 </body></html>`);
       win.document.close();win.print();
     });
@@ -7370,6 +8038,674 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 
   state.core=state.core||{};
   state.core.navigationPatch='Inline Deterministic Navigation';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Trainer Stat Point Distribution + Universal Pokémon Ability Assignment */
+.stat-point-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px
+}
+.stat-point-card{
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper)
+}
+.stat-point-card label{
+  display:block;
+  font-weight:900;
+  margin-bottom:6px
+}
+.stat-point-value{
+  display:inline-flex;
+  min-width:38px;
+  justify-content:center;
+  padding:4px 8px;
+  border-radius:999px;
+  font-weight:900;
+  margin-left:6px
+}
+.stat-point-value.positive{background:#e8f7ef;color:#17623f}
+.stat-point-value.negative{background:#fdebea;color:#9b2d2a}
+.stat-point-summary{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:10px
+}
+.stat-point-summary span{
+  padding:6px 9px;
+  border-radius:999px;
+  background:#f5f7fa;
+  border:1px solid var(--line);
+  font-size:.76rem;
+  font-weight:850
+}
+.any-ability-card{border-left:5px solid #8a4fb3}
+.ability-result{
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#f5f7fa;
+  margin-top:9px;
+  white-space:pre-wrap
+}
+@media(max-width:720px){
+  .stat-point-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:460px){
+  .stat-point-grid{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+/* Stat Point and Universal Ability Update
+   Trainer stat points use one each of +1, +2, +3, -1, -2, and -3.
+   Pokémon may be assigned any official or custom Ability, regardless of species.
+*/
+(function installStatPointAndAbilityUpdate(){
+  const STAT_POINT_VALUES=[-3,-2,-1,1,2,3];
+
+  function ensureTrainerStatPoints(t){
+    t.statModifiers=t.statModifiers||{};
+    const used=STATS.map(s=>Number(t.statModifiers[s])).filter(v=>STAT_POINT_VALUES.includes(v));
+    if(used.length!==6||new Set(used).size!==6){
+      STATS.forEach((s,i)=>t.statModifiers[s]=STAT_POINT_VALUES[i]);
+    }
+    return t.statModifiers;
+  }
+
+  function statPointOptions(selected){
+    return STAT_POINT_VALUES.map(v=>`<option value="${v}" ${Number(selected)===v?'selected':''}>${v>0?'+':''}${v}</option>`).join('');
+  }
+
+  function statPointEditor(t,prefix='modifier_'){
+    const mods=ensureTrainerStatPoints(t);
+    return `<section class="card section-gap">
+      <h2>Trainer Stat Points</h2>
+      <p class="muted">Assign each modifier exactly once: <strong>+1, +2, +3, −1, −2, and −3</strong>. These are recorded separately from the Trainer's Stat Dice.</p>
+      <div class="stat-point-grid">
+        ${STATS.map(s=>`<div class="stat-point-card"><label>${esc(s)}</label><select name="${prefix}${s}">${statPointOptions(mods[s])}</select></div>`).join('')}
+      </div>
+      <div class="stat-point-summary">
+        <span>Positive points: +1, +2, +3</span>
+        <span>Negative points: −1, −2, −3</span>
+        <span>Net total: 0</span>
+      </div>
+    </section>`;
+  }
+
+  function validateAndSaveStatPoints(form,t,prefix='modifier_'){
+    const values=STATS.map(s=>Number(new FormData(form).get(`${prefix}${s}`)));
+    if(values.some(v=>!STAT_POINT_VALUES.includes(v))){
+      alert('Every Trainer stat must use one modifier from +1, +2, +3, −1, −2, or −3.');
+      return false;
+    }
+    if(new Set(values).size!==6){
+      alert('Use each stat modifier exactly once: +1, +2, +3, −1, −2, and −3.');
+      return false;
+    }
+    t.statModifiers=t.statModifiers||{};
+    STATS.forEach((s,i)=>t.statModifiers[s]=values[i]);
+    return true;
+  }
+
+  function trainerStatPointDisplay(t){
+    const mods=ensureTrainerStatPoints(t);
+    return `<section class="card section-gap">
+      <h3>Trainer Stat Point Modifiers</h3>
+      <div class="stat-point-grid">
+        ${STATS.map(s=>{
+          const v=Number(mods[s]||0);
+          return `<div class="stat-point-card"><strong>${esc(s)}</strong><span class="stat-point-value ${v>0?'positive':'negative'}">${v>0?'+':''}${v}</span><div class="muted small">Stat Die: ${esc(t.stats?.[s]||'—')}</div></div>`;
+        }).join('')}
+      </div>
+    </section>`;
+  }
+
+  /* Add point selection directly into Trainer creation step 3. */
+  const previousTrainerWizardPoints=trainerWizard;
+  trainerWizard=function(){
+    const page=previousTrainerWizardPoints();
+    if((state.trainerWizardStep||1)!==3)return page;
+    const t=state.trainerDraft;
+    ensureTrainerStatPoints(t);
+    return page.replace(
+      '<div class="notice">Use each die exactly once.</div>',
+      `<div class="notice">Use each die exactly once.</div>${statPointEditor(t)}`
+    );
+  };
+
+  /* Add editable point distribution to the Stats & Skills page. */
+  const previousTrainerStatsSkillsPoints=trainerStatsSkills;
+  trainerStatsSkills=function(t){
+    return previousTrainerStatsSkillsPoints(t).replace(
+      '<h2>Skills</h2>',
+      `${statPointEditor(t)}<h2>Skills</h2>`
+    );
+  };
+
+  /* Show the current point distribution on the Trainer overview. */
+  const previousTrainerOverviewPoints=trainerOverview;
+  trainerOverview=function(t){
+    return previousTrainerOverviewPoints(t)+trainerStatPointDisplay(t);
+  };
+
+  function allAssignableAbilities(){
+    const names=new Set();
+    if(typeof allAbilityNames==='function')allAbilityNames().forEach(x=>names.add(x));
+    if(typeof V06_ABILITY_DATABASE!=='undefined')V06_ABILITY_DATABASE.forEach(x=>names.add(x.name));
+    (state.contentLibrary||[]).filter(x=>x.type==='abilities'&&!x.deleted&&!x.archived).forEach(x=>names.add(x.data?.name));
+    return [...names].filter(Boolean).sort();
+  }
+
+  function assignableAbilityRecord(name){
+    if(typeof abilityRecord==='function'){
+      const found=abilityRecord(name);
+      if(found)return found;
+    }
+    const custom=(state.contentLibrary||[]).find(x=>x.type==='abilities'&&!x.deleted&&!x.archived&&x.data?.name===name);
+    return custom?{name:custom.data.name,effect:custom.data.effect||custom.data.notes||'Custom Ability'}:null;
+  }
+
+  function universalAbilityPanel(p){
+    const options=allAssignableAbilities();
+    const record=assignableAbilityRecord(p.ability);
+    return `<section class="card any-ability-card section-gap">
+      <h2>Professor Ability Override</h2>
+      <p class="muted">Assign any official or custom Ability to this Pokémon, even when its species does not normally receive it.</p>
+      <form id="universalAbilityForm" class="form">
+        <div class="field"><label>Ability</label>
+          <input id="universalAbilityInput" name="ability" list="universalAbilityList" value="${esc(p.ability||'')}" placeholder="Search or type any Ability" required>
+          <datalist id="universalAbilityList">${options.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>
+        </div>
+        <div id="universalAbilityDescription" class="ability-result">${record?`<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`:'Choose or type an Ability.'}</div>
+        <label class="list-item"><span><strong>Professor Override</strong><br><span class="muted">Marks this Ability as intentionally noncanonical for the species.</span></span><input type="checkbox" name="override" ${p.abilityOverride?'checked':''}></label>
+        ${textarea('Override notes','abilityOverrideNotes',p.abilityOverrideNotes||'')}
+        <button class="btn primary">Assign Ability</button>
+      </form>
+    </section>`;
+  }
+
+  const previousPokemonDetailAbility=pokemonDetail;
+  pokemonDetail=function(){
+    const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+    return previousPokemonDetailAbility()+universalAbilityPanel(p);
+  };
+
+  const previousBindStatAbility=bind;
+  bind=function(){
+    previousBindStatAbility();
+
+    /* Save stat points during Trainer creation without interfering with the existing wizard. */
+    const wizard=document.getElementById('trainerWizard');
+    if(wizard&&(state.trainerWizardStep||1)===3){
+      const existingHandler=wizard.onsubmit;
+      wizard.onsubmit=function(event){
+        const t=state.trainerDraft;
+        if(!validateAndSaveStatPoints(wizard,t))return;
+        return existingHandler?.call(this,event);
+      };
+    }
+
+    /* Extend the existing Stats & Skills save handler. */
+    const statsForm=document.getElementById('trainerStatsSkillsForm');
+    if(statsForm){
+      const existingHandler=statsForm.onsubmit;
+      statsForm.onsubmit=function(event){
+        const t=trainer();
+        if(!validateAndSaveStatPoints(statsForm,t))return;
+        return existingHandler?.call(this,event);
+      };
+    }
+
+    const abilityInput=document.getElementById('universalAbilityInput');
+    const abilityDescription=document.getElementById('universalAbilityDescription');
+    abilityInput?.addEventListener('input',()=>{
+      const record=assignableAbilityRecord(abilityInput.value);
+      abilityDescription.innerHTML=record
+        ? `<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`
+        : '<span class="muted">This will be saved as a custom typed Ability name.</span>';
+    });
+
+    document.getElementById('universalAbilityForm')?.addEventListener('submit',event=>{
+      event.preventDefault();
+      const data=Object.fromEntries(new FormData(event.target));
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      p.ability=String(data.ability||'').trim();
+      p.abilityOverride=data.override==='on';
+      p.abilityOverrideNotes=data.abilityOverrideNotes||'';
+      p.availableAbilities=Array.isArray(p.availableAbilities)?p.availableAbilities:[];
+      if(p.ability&&!p.availableAbilities.includes(p.ability))p.availableAbilities.push(p.ability);
+      p.abilityHistory=Array.isArray(p.abilityHistory)?p.abilityHistory:[];
+      p.abilityHistory.push({
+        id:id('abilityChange'),
+        ability:p.ability,
+        override:p.abilityOverride,
+        notes:p.abilityOverrideNotes,
+        date:new Date().toISOString()
+      });
+      if(typeof professorLogEntry==='function'){
+        professorLogEntry(`Assigned Ability: ${p.ability}`,`${p.nickname||p.species}${p.abilityOverride?' • Professor override':''}`);
+      }
+      save();
+      alert(`${p.nickname||p.species} now has ${p.ability}.`);
+      render();
+    });
+  };
+
+  /* Migrate existing Trainers and Pokémon safely. */
+  state.trainers.forEach(ensureTrainerStatPoints);
+  state.pokemon.forEach(p=>{
+    p.abilityOverride=!!p.abilityOverride;
+    p.abilityOverrideNotes=p.abilityOverrideNotes||'';
+    p.abilityHistory=Array.isArray(p.abilityHistory)?p.abilityHistory:[];
+  });
+  state.core=state.core||{};
+  state.core.statPointAbilityPatch='Trainer ±1/±2/±3 Points and Universal Pokémon Abilities';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Pokémon PC Box System */
+.pc-tabs{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(120px,1fr));
+  gap:6px;
+  background:#e8edf3;
+  border-radius:16px;
+  padding:5px;
+  margin:14px 0
+}
+.pc-tabs button{
+  border:0;
+  background:transparent;
+  padding:10px;
+  border-radius:11px;
+  font-weight:900;
+  color:var(--muted)
+}
+.pc-tabs button.active{
+  background:var(--paper);
+  color:var(--navy);
+  box-shadow:0 4px 12px rgba(23,32,51,.08)
+}
+.pc-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px
+}
+.pc-summary>div{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--paper);
+  text-align:center
+}
+.pc-summary span{
+  display:block;
+  color:var(--muted);
+  font-size:.72rem;
+  font-weight:850
+}
+.pc-summary strong{
+  font-size:1.2rem;
+  color:var(--navy)
+}
+.pc-box-tabs{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(100px,1fr));
+  gap:7px;
+  margin:12px 0
+}
+.pc-box-tabs button{
+  padding:9px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--paper);
+  color:var(--navy);
+  font-weight:850
+}
+.pc-box-tabs button.active{
+  background:var(--navy);
+  color:#fff
+}
+.pc-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px
+}
+.pc-card{
+  display:grid;
+  grid-template-columns:48px 1fr;
+  gap:10px;
+  align-items:center;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:var(--paper);
+  padding:10px;
+  text-align:left;
+  cursor:pointer;
+  min-height:74px
+}
+.pc-card:hover{
+  border-color:var(--blue);
+  box-shadow:0 7px 18px rgba(23,32,51,.08)
+}
+.pc-card-orb{
+  width:46px;
+  height:46px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,#edf3fa,#fff);
+  border:1px solid #dce3ec;
+  color:var(--navy);
+  font-weight:900
+}
+.pc-card strong,.pc-card span{display:block}
+.pc-card span{font-size:.75rem;color:var(--muted);margin-top:3px}
+.pc-storage-panel{border-left:5px solid #315f91}
+.pc-storage-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px
+}
+.pc-empty-slot{
+  min-height:74px;
+  border:1px dashed var(--line);
+  border-radius:15px;
+  background:rgba(255,255,255,.35)
+}
+.pc-box-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap
+}
+.pc-box-header input{
+  max-width:260px
+}
+@media(max-width:760px){
+  .pc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pc-box-tabs{grid-template-columns:repeat(2,minmax(100px,1fr))}
+}
+@media(max-width:460px){
+  .pc-grid{grid-template-columns:1fr}
+  .pc-summary{grid-template-columns:1fr}
+  .pc-storage-actions{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+/* Pokémon PC Box System
+   - Six-Pokémon active party
+   - Eight storage boxes with thirty slots each
+   - Automatic overflow storage when a Trainer catches more than six Pokémon
+   - Party-to-box, box-to-party, box-to-box, and party swap controls
+*/
+(function installPokemonPcBoxes(){
+  const PARTY_LIMIT=6;
+  const BOX_COUNT=8;
+  const BOX_CAPACITY=30;
+
+  state.pokemonStorageTab=state.pokemonStorageTab||'party';
+  state.activePokemonBox=Math.max(1,Math.min(BOX_COUNT,Number(state.activePokemonBox||1)));
+  state.pokemonBoxNames=state.pokemonBoxNames||{};
+
+  function ownedPokemon(trainerId){
+    return state.pokemon.filter(p=>p.trainerId===trainerId);
+  }
+
+  function normalizePokemonStorage(trainerId){
+    const owned=ownedPokemon(trainerId);
+    const explicitParty=owned.filter(p=>p.storageLocation==='party');
+    const unassigned=owned.filter(p=>!p.storageLocation);
+    let partyCount=explicitParty.length;
+
+    unassigned.forEach(p=>{
+      if(partyCount<PARTY_LIMIT){
+        p.storageLocation='party';
+        p.boxNumber=null;
+        partyCount++;
+      }else{
+        p.storageLocation='box';
+        p.boxNumber=firstAvailableBox(trainerId);
+      }
+    });
+
+    if(explicitParty.length>PARTY_LIMIT){
+      explicitParty.slice(PARTY_LIMIT).forEach(p=>{
+        p.storageLocation='box';
+        p.boxNumber=firstAvailableBox(trainerId,p.id);
+      });
+    }
+
+    owned.filter(p=>p.storageLocation==='box').forEach(p=>{
+      p.boxNumber=Math.max(1,Math.min(BOX_COUNT,Number(p.boxNumber||firstAvailableBox(trainerId,p.id))));
+    });
+  }
+
+  function partyPokemon(trainerId){
+    normalizePokemonStorage(trainerId);
+    return ownedPokemon(trainerId).filter(p=>p.storageLocation==='party').slice(0,PARTY_LIMIT);
+  }
+
+  function boxedPokemon(trainerId,boxNumber=null){
+    normalizePokemonStorage(trainerId);
+    return ownedPokemon(trainerId).filter(p=>
+      p.storageLocation==='box'&&(boxNumber===null||Number(p.boxNumber)===Number(boxNumber))
+    );
+  }
+
+  function boxCount(trainerId,boxNumber){
+    return boxedPokemon(trainerId,boxNumber).length;
+  }
+
+  function firstAvailableBox(trainerId,ignorePokemonId=null){
+    for(let box=1;box<=BOX_COUNT;box++){
+      const count=state.pokemon.filter(p=>
+        p.trainerId===trainerId&&p.id!==ignorePokemonId&&
+        p.storageLocation==='box'&&Number(p.boxNumber)===box
+      ).length;
+      if(count<BOX_CAPACITY)return box;
+    }
+    return BOX_COUNT;
+  }
+
+  function boxName(box){
+    return state.pokemonBoxNames[box]||`Box ${box}`;
+  }
+
+  function movePokemonToBox(pokemonId,boxNumber=null){
+    const p=state.pokemon.find(x=>x.id===pokemonId);
+    if(!p)return false;
+    const target=Math.max(1,Math.min(BOX_COUNT,Number(boxNumber||firstAvailableBox(p.trainerId,p.id))));
+    if(boxCount(p.trainerId,target)>=BOX_CAPACITY&&!(p.storageLocation==='box'&&Number(p.boxNumber)===target)){
+      alert(`${boxName(target)} is full.`);
+      return false;
+    }
+    p.storageLocation='box';
+    p.boxNumber=target;
+    if(typeof professorLogEntry==='function'){
+      professorLogEntry(`Sent ${p.nickname||p.species} to ${boxName(target)}`,'Pokémon PC storage updated.');
+    }
+    return true;
+  }
+
+  function movePokemonToParty(pokemonId){
+    const p=state.pokemon.find(x=>x.id===pokemonId);
+    if(!p)return false;
+    const currentParty=partyPokemon(p.trainerId);
+
+    if(currentParty.length>=PARTY_LIMIT){
+      const choices=currentParty.map((mon,i)=>`${i+1}. ${mon.nickname||mon.species}`).join('\n');
+      const answer=prompt(`The party is full. Choose a Pokémon to send to the PC:\n\n${choices}`);
+      const index=Number(answer)-1;
+      if(!Number.isInteger(index)||index<0||index>=currentParty.length)return false;
+      const outgoing=currentParty[index];
+      const oldBox=Number(p.boxNumber||firstAvailableBox(p.trainerId,outgoing.id));
+      outgoing.storageLocation='box';
+      outgoing.boxNumber=oldBox;
+    }
+
+    p.storageLocation='party';
+    p.boxNumber=null;
+    if(typeof professorLogEntry==='function'){
+      professorLogEntry(`Moved ${p.nickname||p.species} to the active party`,'Pokémon PC storage updated.');
+    }
+    return true;
+  }
+
+  /* Party helpers throughout the app now represent the active six-Pokémon team. */
+  party=function(trainerId){
+    return partyPokemon(trainerId);
+  };
+
+  function pcPokemonCard(p){
+    return `<button class="pc-card" data-pc-pokemon="${p.id}">
+      <span class="pc-card-orb">${esc((p.nickname||p.species||'?').slice(0,1).toUpperCase())}</span>
+      <span><strong>${esc(p.nickname||p.species)}</strong><span>${esc(p.species)} • Rank ${Number(p.rank||1)}${p.shiny?' • Shiny':''}</span></span>
+    </button>`;
+  }
+
+  function partyStorageView(t){
+    const mons=partyPokemon(t.id);
+    return `<div class="pc-summary">
+      <div><span>Active Party</span><strong>${mons.length}/${PARTY_LIMIT}</strong></div>
+      <div><span>PC Storage</span><strong>${boxedPokemon(t.id).length}</strong></div>
+      <div><span>Total Owned</span><strong>${ownedPokemon(t.id).length}</strong></div>
+    </div>
+    <div class="section-title"><h2>Active Party</h2><button class="btn primary" id="addDbPokemon">+ Catch Pokémon</button></div>
+    <div id="dbSlot"></div>
+    <div class="pokemon-grid">${mons.map(p=>`<button class="pokemon-card" data-pokemon="${p.id}"><div class="pokemon-orb">${esc((p.nickname||p.species)[0])}</div><div><strong>${esc(p.nickname||p.species)}</strong><span>${esc(p.species)} • Rank ${p.rank} • ${p.tn||0} TN</span></div><span class="chevron">›</span></button>`).join('')||empty('No Pokémon in the active party.')}</div>
+    ${mons.length>=PARTY_LIMIT?'<div class="notice section-gap">The party is full. Newly caught Pokémon are automatically sent to the first available PC Box.</div>':''}`;
+  }
+
+  function pcStorageView(t){
+    const box=state.activePokemonBox;
+    const mons=boxedPokemon(t.id,box);
+    const emptySlots=Math.max(0,BOX_CAPACITY-mons.length);
+    return `<div class="pc-summary">
+      <div><span>Current Box</span><strong>${boxName(box)}</strong></div>
+      <div><span>Stored Here</span><strong>${mons.length}/${BOX_CAPACITY}</strong></div>
+      <div><span>All PC Pokémon</span><strong>${boxedPokemon(t.id).length}</strong></div>
+    </div>
+    <div class="pc-box-tabs">${Array.from({length:BOX_COUNT},(_,i)=>i+1).map(n=>`<button data-pc-box="${n}" class="${box===n?'active':''}">${esc(boxName(n))}<br><span class="small">${boxCount(t.id,n)}/${BOX_CAPACITY}</span></button>`).join('')}</div>
+    <section class="card">
+      <div class="pc-box-header">
+        <div><h2 style="margin:0">${esc(boxName(box))}</h2><p class="muted">Select a Pokémon to view it or move it.</p></div>
+        <div class="inline-form"><input id="pcBoxNameInput" value="${esc(boxName(box))}" maxlength="24"><button class="btn secondary" id="renamePcBox">Rename</button></div>
+      </div>
+      <input id="pcBoxSearch" class="search section-gap" placeholder="Search this Box by nickname, species, Ability, or Type">
+      <div id="pcBoxGrid" class="pc-grid section-gap">${mons.map(pcPokemonCard).join('')}${Array.from({length:Math.min(emptySlots,6)},()=>'<div class="pc-empty-slot"></div>').join('')}</div>
+    </section>`;
+  }
+
+  const previousPokemonViewPc=pokemonView;
+  pokemonView=function(){
+    const t=trainer();
+    if(!t)return empty('Create a Trainer first.');
+    normalizePokemonStorage(t.id);
+    if(state.selectedPokemonId)return pokemonDetail();
+
+    return `<section class="hero compact"><h1>Pokémon</h1><p>Active party and PC Box storage</p></section>
+      <div class="pc-tabs">
+        <button data-pc-tab="party" class="${state.pokemonStorageTab==='party'?'active':''}">Active Party</button>
+        <button data-pc-tab="boxes" class="${state.pokemonStorageTab==='boxes'?'active':''}">PC Boxes</button>
+      </div>
+      ${state.pokemonStorageTab==='boxes'?pcStorageView(t):partyStorageView(t)}`;
+  };
+
+  function pokemonStoragePanel(p){
+    const inParty=p.storageLocation!=='box';
+    return `<section class="card pc-storage-panel section-gap">
+      <div class="stat">
+        <div><h2 style="margin:0">Pokémon Storage</h2><p class="muted">${inParty?'Currently in the active party.':`Currently stored in ${esc(boxName(Number(p.boxNumber||1)))}.`}</p></div>
+        <span class="badge ${inParty?'approved':'professor'}">${inParty?'Party':'PC Box'}</span>
+      </div>
+      <div class="pc-storage-actions section-gap">
+        ${inParty?`<button class="btn secondary" id="sendPokemonToPc">Send to PC</button>`:`<button class="btn primary" id="movePokemonToParty">Move to Party</button>`}
+        <div class="inline-form">
+          <select id="pokemonBoxDestination">${Array.from({length:BOX_COUNT},(_,i)=>i+1).map(n=>`<option value="${n}" ${Number(p.boxNumber)===n?'selected':''}>${esc(boxName(n))} (${boxCount(p.trainerId,n)}/${BOX_CAPACITY})</option>`).join('')}</select>
+          <button class="btn secondary" id="movePokemonToSelectedBox">${inParty?'Send':'Move'}</button>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  const previousPokemonDetailPc=pokemonDetail;
+  pokemonDetail=function(){
+    const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+    return previousPokemonDetailPc()+pokemonStoragePanel(p);
+  };
+
+  const previousBindPc=bind;
+  bind=function(){
+    previousBindPc();
+
+    document.querySelectorAll('[data-pc-tab]').forEach(b=>b.onclick=()=>{
+      state.pokemonStorageTab=b.dataset.pcTab;
+      save();render();
+    });
+
+    document.querySelectorAll('[data-pc-box]').forEach(b=>b.onclick=()=>{
+      state.activePokemonBox=Number(b.dataset.pcBox);
+      save();render();
+    });
+
+    document.querySelectorAll('[data-pc-pokemon]').forEach(b=>b.onclick=()=>{
+      state.selectedPokemonId=b.dataset.pcPokemon;
+      save();render();
+    });
+
+    document.getElementById('renamePcBox')?.addEventListener('click',()=>{
+      const value=document.getElementById('pcBoxNameInput').value.trim();
+      state.pokemonBoxNames[state.activePokemonBox]=value||`Box ${state.activePokemonBox}`;
+      save();render();
+    });
+
+    document.getElementById('pcBoxSearch')?.addEventListener('input',e=>{
+      const q=e.target.value.toLowerCase();
+      const mons=boxedPokemon(trainer().id,state.activePokemonBox).filter(p=>JSON.stringify(p).toLowerCase().includes(q));
+      document.getElementById('pcBoxGrid').innerHTML=mons.map(pcPokemonCard).join('')||empty('No matching Pokémon in this Box.');
+      document.querySelectorAll('[data-pc-pokemon]').forEach(b=>b.onclick=()=>{
+        state.selectedPokemonId=b.dataset.pcPokemon;save();render();
+      });
+    });
+
+    document.getElementById('sendPokemonToPc')?.addEventListener('click',()=>{
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      if(movePokemonToBox(p.id)){state.pokemonStorageTab='party';save();render()}
+    });
+
+    document.getElementById('movePokemonToParty')?.addEventListener('click',()=>{
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      if(movePokemonToParty(p.id)){state.pokemonStorageTab='party';save();render()}
+    });
+
+    document.getElementById('movePokemonToSelectedBox')?.addEventListener('click',()=>{
+      const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+      const box=Number(document.getElementById('pokemonBoxDestination').value);
+      if(movePokemonToBox(p.id,box)){state.pokemonStorageTab='boxes';state.activePokemonBox=box;save();render()}
+    });
+  };
+
+  /* Existing catches without storage information are migrated safely.
+     The first six remain in the party; overflow goes into PC Boxes. */
+  state.trainers.forEach(t=>normalizePokemonStorage(t.id));
+  state.core=state.core||{};
+  state.core.pokemonPcPatch='Eight PC Boxes, 30 slots each, six-Pokémon active party';
   save();
   render();
 })();

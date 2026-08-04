@@ -1,17 +1,24 @@
-# Journey Companion v2 — Inline Navigation Fix
+# Journey Companion v2 — Pokémon PC Box Edition
 
-This finalized GitHub Pages build replaces the floating Back and Home controls with an inline navigation bar that does not cover app content.
+This finalized GitHub Pages build adds video-game-style Pokémon storage.
 
-## Navigation behavior
+## Pokémon PC features
 
-- The navigation bar appears inside each page.
-- It never floats over forms, tabs, or buttons.
-- From an Archetype or other Tools page, **Back** returns to the main Tools page.
-- From the main Tools page, **Back** returns Home.
-- Pokémon, Pokédex, and Item detail pages return to their parent lists first.
-- Professor and Campaign subpages return to their overview pages first.
-- The Home button always returns directly to the final dashboard.
-- `Alt + Left Arrow` uses the same reliable Back behavior.
+- Six-Pokémon active party
+- Eight PC Boxes
+- Thirty Pokémon per Box
+- Rename each Box
+- Search Pokémon inside the active Box
+- Move Pokémon from the party to any Box
+- Move Pokémon from a Box to the party
+- Move Pokémon between Boxes
+- Automatic party swapping when the active party is full
+- Newly caught Pokémon automatically go to the first available Box when the party already has six Pokémon
+- Existing Pokémon are migrated safely:
+  - First six remain in the party
+  - All additional Pokémon move into PC storage
+- Full backups preserve Box names and Pokémon locations
+- Party-based Battle, Travel, and Trainer features use only the active six Pokémon
 
 ## GitHub Pages
 
