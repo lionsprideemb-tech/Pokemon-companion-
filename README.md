@@ -1,27 +1,20 @@
-# Journey Companion v2 — Pokémon PC Box Edition
+# Journey Companion v2 — Searchable Ability Dropdown
 
-This finalized GitHub Pages build adds video-game-style Pokémon storage.
+This build changes Pokémon Ability assignment to use the same searchable dropdown style as Move selection.
 
-## Pokémon PC features
+## Ability picker changes
 
-- Six-Pokémon active party
-- Eight PC Boxes
-- Thirty Pokémon per Box
-- Rename each Box
-- Search Pokémon inside the active Box
-- Move Pokémon from the party to any Box
-- Move Pokémon from a Box to the party
-- Move Pokémon between Boxes
-- Automatic party swapping when the active party is full
-- Newly caught Pokémon automatically go to the first available Box when the party already has six Pokémon
-- Existing Pokémon are migrated safely:
-  - First six remain in the party
-  - All additional Pokémon move into PC storage
-- Full backups preserve Box names and Pokémon locations
-- Party-based Battle, Travel, and Trainer features use only the active six Pokémon
+- Search all official Abilities while creating a Pokémon
+- Search all official Abilities from the Pokémon detail page
+- Custom Builder Suite Abilities also appear
+- Any Ability can be assigned to any species
+- The Ability description appears beneath the search field
+- Canonical species Abilities remain visible in the species preview
+- A typed custom Ability name is still accepted
+- Ability changes remain saved in the Pokémon's Ability history
 
 ## GitHub Pages
 
 Upload `index.html`, `.nojekyll`, and `README.md` to the repository root, then publish from `main` and `/ (root)`.
 
-Export a complete campaign backup before replacing the currently deployed build.
+Export a complete campaign backup before replacing the deployed build.

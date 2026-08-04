@@ -7582,6 +7582,247 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
 })();
 </script>
 
+
+<style>
+/* Searchable Ability Picker */
+.ability-picker{
+  display:grid;
+  gap:7px
+}
+.ability-picker input{
+  width:100%
+}
+.ability-picker-detail{
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#f5f7fa;
+  min-height:52px;
+  white-space:pre-wrap
+}
+</style>
+
+<script>
+/* Searchable Ability Dropdown
+   Uses the same datalist-style search pattern as the Move picker.
+   Any official or custom Ability can be assigned to any Pokémon.
+*/
+(function installAbilitySearchDropdown(){
+  function searchableAbilityNames(){
+    const names=new Set();
+    if(typeof allAbilityNames==='function'){
+      allAbilityNames().forEach(name=>names.add(name));
+    }
+    if(typeof V06_ABILITY_DATABASE!=='undefined'){
+      V06_ABILITY_DATABASE.forEach(a=>names.add(a.name));
+    }
+    if(typeof PHASE2_ABILITIES!=='undefined'){
+      PHASE2_ABILITIES.forEach(a=>names.add(a.name));
+    }
+    (state.contentLibrary||[])
+      .filter(x=>x.type==='abilities'&&!x.deleted&&!x.archived)
+      .forEach(x=>names.add(x.data?.name));
+    return [...names].filter(Boolean).sort();
+  }
+
+  function searchableAbilityRecord(name){
+    if(typeof abilityRecord==='function'){
+      const record=abilityRecord(name);
+      if(record)return record;
+    }
+    const custom=(state.contentLibrary||[]).find(x=>
+      x.type==='abilities'&&!x.deleted&&!x.archived&&x.data?.name===name
+    );
+    return custom?{
+      name:custom.data.name,
+      effect:custom.data.effect||custom.data.notes||'Custom Ability'
+    }:null;
+  }
+
+  function abilityDataList(){
+    return `<datalist id="abilityDatabaseList">${
+      searchableAbilityNames().map(name=>{
+        const a=searchableAbilityRecord(name);
+        return `<option value="${esc(name)}">${esc(String(a?.effect||'').slice(0,100))}</option>`;
+      }).join('')
+    }</datalist>`;
+  }
+
+  function abilitySearchPicker(value='',inputId='abilityPick'){
+    const record=searchableAbilityRecord(value);
+    return `<div class="ability-picker">
+      ${abilityDataList()}
+      <input id="${inputId}" name="ability" list="abilityDatabaseList" value="${esc(value)}" placeholder="Search ${searchableAbilityNames().length} Abilities" autocomplete="off" required>
+      <div class="ability-picker-detail" data-ability-search-detail>
+        ${record?`<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`:'<span class="muted">Search and choose any Ability.</span>'}
+      </div>
+    </div>`;
+  }
+
+  /* Replace the species-limited Ability select in Pokémon creation. */
+  const previousDbPokemonFormAbility=dbPokemonForm;
+  dbPokemonForm=function(){
+    const page=previousDbPokemonFormAbility();
+    return page.replace(
+      /<div class="field"><label>Ability<\/label><select id="abilityPick" name="ability">[\s\S]*?<\/select><\/div>\s*<div id="abilityPreview"><\/div>/,
+      `<div class="field"><label>Ability</label>${abilitySearchPicker('','abilityPick')}</div>`
+    );
+  };
+
+  /* Simplify the Pokémon detail Ability editor to the same searchable picker. */
+  universalAbilityPanel=function(p){
+    return `<section class="card any-ability-card section-gap">
+      <h2>Ability</h2>
+      <p class="muted">Search and assign any official or custom Ability, whether or not the species normally receives it.</p>
+      <form id="universalAbilityForm" class="form">
+        <div class="field"><label>Ability</label>${abilitySearchPicker(p.ability||'','universalAbilityInput')}</div>
+        <button class="btn primary">Save Ability</button>
+      </form>
+    </section>`;
+  };
+
+  /* Rebuild the creation binder so the Ability picker behaves like the Move picker. */
+  bindPhase2Creation=function(){
+    const form=document.getElementById('dbPokemonForm');
+    if(!form)return;
+
+    const speciesPick=document.getElementById('speciesPick');
+    const abilityInput=document.getElementById('abilityPick');
+    const speciesPreview=document.getElementById('speciesPreview');
+    const naturePreview=document.getElementById('naturePreview');
+
+    function updateAbilityDetail(){
+      const detail=form.querySelector('[data-ability-search-detail]');
+      const record=searchableAbilityRecord(abilityInput?.value||'');
+      if(detail){
+        detail.innerHTML=record
+          ? `<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`
+          : '<span class="muted">Search and choose any Ability.</span>';
+      }
+    }
+
+    function updateNature(){
+      const n=natureByName(document.getElementById('naturePick').value);
+      naturePreview.innerHTML=n
+        ? `This Nature increases <strong>${esc(n.up)}</strong> one die size and decreases <strong>${esc(n.down)}</strong> one die size.${n.up===n.down?' Because both are the same stat, the changes cancel.':''}`
+        : '';
+    }
+
+    function updateSpecies(){
+      const s=SPECIES_DB[+speciesPick.value];
+      if(!s)return;
+      const adjusted=applyNature(s.stats,document.getElementById('naturePick').value);
+      speciesPreview.innerHTML=`<section class="card">
+        <strong>${esc(s.name)}</strong>
+        <p class="muted">${esc(s.types.join(' / '))} • ${esc(s.size)}</p>
+        <div class="dice-grid">${Object.entries(adjusted).map(([k,v])=>`<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div>
+        <p class="muted small">Evolution: ${esc(s.evolution||'N/A')} • Movement: ${esc(s.movement||'—')}</p>
+        <p class="muted small"><strong>Canonical Abilities:</strong> ${esc((s.abilities||[]).join(', ')||'None listed')}</p>
+      </section>`;
+      if(!abilityInput.value){
+        abilityInput.value=(s.abilities||[])[0]||'';
+        updateAbilityDetail();
+      }
+    }
+
+    speciesPick.onchange=updateSpecies;
+    document.getElementById('naturePick').onchange=()=>{updateNature();updateSpecies()};
+    abilityInput?.addEventListener('input',updateAbilityDetail);
+
+    form.querySelectorAll('.move-db-input').forEach(input=>{
+      input.addEventListener('input',()=>{
+        const detail=form.querySelector(`[data-move-detail="${input.name.replace('move','')}"]`);
+        if(detail)detail.innerHTML=moveDetailHtml(input.value);
+      });
+    });
+
+    updateNature();
+    updateSpecies();
+    updateAbilityDetail();
+
+    form.onsubmit=event=>{
+      event.preventDefault();
+      const data=Object.fromEntries(new FormData(form));
+      const species=SPECIES_DB[+data.speciesIndex];
+      if(!species)return;
+
+      const baseStats={...species.stats};
+      const stats=applyNature(baseStats,data.nature);
+      state.pokemon.push({
+        id:id('pokemon'),
+        trainerId:trainer().id,
+        species:species.name,
+        nickname:data.nickname,
+        types:species.types,
+        rank:+data.rank,
+        tn:+data.tn,
+        nature:data.nature,
+        ability:String(data.ability||'').trim(),
+        availableAbilities:[...new Set([...(species.abilities||[]),String(data.ability||'').trim()].filter(Boolean))],
+        baseStats,
+        stats,
+        evolution:species.evolution,
+        size:species.size,
+        movement:species.movement,
+        eggCycle:species.eggCycle,
+        eggGroups:species.eggGroups,
+        move1:data.move1,
+        move2:data.move2,
+        move3:data.move3,
+        move4:data.move4,
+        notes:'',
+        rankHistory:[]
+      });
+      save();
+      render();
+    };
+  };
+
+  /* Replace the detail-page binder with a simple searchable save. */
+  const previousBindAbilitySearch=bind;
+  bind=function(){
+    previousBindAbilitySearch();
+
+    const detailAbilityInput=document.getElementById('universalAbilityInput');
+    const detailBox=document.querySelector('#universalAbilityForm [data-ability-search-detail]');
+
+    detailAbilityInput?.addEventListener('input',()=>{
+      const record=searchableAbilityRecord(detailAbilityInput.value);
+      if(detailBox){
+        detailBox.innerHTML=record
+          ? `<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`
+          : '<span class="muted">You may type a custom Ability name.</span>';
+      }
+    });
+
+    const form=document.getElementById('universalAbilityForm');
+    if(form){
+      form.onsubmit=event=>{
+        event.preventDefault();
+        const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+        const ability=String(new FormData(form).get('ability')||'').trim();
+        p.ability=ability;
+        p.availableAbilities=Array.isArray(p.availableAbilities)?p.availableAbilities:[];
+        if(ability&&!p.availableAbilities.includes(ability))p.availableAbilities.push(ability);
+        p.abilityHistory=Array.isArray(p.abilityHistory)?p.abilityHistory:[];
+        p.abilityHistory.push({id:id('abilityChange'),ability,date:new Date().toISOString()});
+        if(typeof professorLogEntry==='function'){
+          professorLogEntry(`Assigned Ability: ${ability}`,p.nickname||p.species);
+        }
+        save();
+        alert(`${p.nickname||p.species} now has ${ability}.`);
+        render();
+      };
+    }
+  };
+
+  state.core=state.core||{};
+  state.core.abilityPickerPatch='Searchable Ability Dropdown';
+  save();
+  render();
+})();
+</script>
+
 </body></html>`);
       win.document.close();win.print();
     });
@@ -8706,6 +8947,247 @@ body.jc2-dark .jc2-feature-icon{background:#253247}
   state.trainers.forEach(t=>normalizePokemonStorage(t.id));
   state.core=state.core||{};
   state.core.pokemonPcPatch='Eight PC Boxes, 30 slots each, six-Pokémon active party';
+  save();
+  render();
+})();
+</script>
+
+
+<style>
+/* Searchable Ability Picker */
+.ability-picker{
+  display:grid;
+  gap:7px
+}
+.ability-picker input{
+  width:100%
+}
+.ability-picker-detail{
+  padding:11px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#f5f7fa;
+  min-height:52px;
+  white-space:pre-wrap
+}
+</style>
+
+<script>
+/* Searchable Ability Dropdown
+   Uses the same datalist-style search pattern as the Move picker.
+   Any official or custom Ability can be assigned to any Pokémon.
+*/
+(function installAbilitySearchDropdown(){
+  function searchableAbilityNames(){
+    const names=new Set();
+    if(typeof allAbilityNames==='function'){
+      allAbilityNames().forEach(name=>names.add(name));
+    }
+    if(typeof V06_ABILITY_DATABASE!=='undefined'){
+      V06_ABILITY_DATABASE.forEach(a=>names.add(a.name));
+    }
+    if(typeof PHASE2_ABILITIES!=='undefined'){
+      PHASE2_ABILITIES.forEach(a=>names.add(a.name));
+    }
+    (state.contentLibrary||[])
+      .filter(x=>x.type==='abilities'&&!x.deleted&&!x.archived)
+      .forEach(x=>names.add(x.data?.name));
+    return [...names].filter(Boolean).sort();
+  }
+
+  function searchableAbilityRecord(name){
+    if(typeof abilityRecord==='function'){
+      const record=abilityRecord(name);
+      if(record)return record;
+    }
+    const custom=(state.contentLibrary||[]).find(x=>
+      x.type==='abilities'&&!x.deleted&&!x.archived&&x.data?.name===name
+    );
+    return custom?{
+      name:custom.data.name,
+      effect:custom.data.effect||custom.data.notes||'Custom Ability'
+    }:null;
+  }
+
+  function abilityDataList(){
+    return `<datalist id="abilityDatabaseList">${
+      searchableAbilityNames().map(name=>{
+        const a=searchableAbilityRecord(name);
+        return `<option value="${esc(name)}">${esc(String(a?.effect||'').slice(0,100))}</option>`;
+      }).join('')
+    }</datalist>`;
+  }
+
+  function abilitySearchPicker(value='',inputId='abilityPick'){
+    const record=searchableAbilityRecord(value);
+    return `<div class="ability-picker">
+      ${abilityDataList()}
+      <input id="${inputId}" name="ability" list="abilityDatabaseList" value="${esc(value)}" placeholder="Search ${searchableAbilityNames().length} Abilities" autocomplete="off" required>
+      <div class="ability-picker-detail" data-ability-search-detail>
+        ${record?`<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`:'<span class="muted">Search and choose any Ability.</span>'}
+      </div>
+    </div>`;
+  }
+
+  /* Replace the species-limited Ability select in Pokémon creation. */
+  const previousDbPokemonFormAbility=dbPokemonForm;
+  dbPokemonForm=function(){
+    const page=previousDbPokemonFormAbility();
+    return page.replace(
+      /<div class="field"><label>Ability<\/label><select id="abilityPick" name="ability">[\s\S]*?<\/select><\/div>\s*<div id="abilityPreview"><\/div>/,
+      `<div class="field"><label>Ability</label>${abilitySearchPicker('','abilityPick')}</div>`
+    );
+  };
+
+  /* Simplify the Pokémon detail Ability editor to the same searchable picker. */
+  universalAbilityPanel=function(p){
+    return `<section class="card any-ability-card section-gap">
+      <h2>Ability</h2>
+      <p class="muted">Search and assign any official or custom Ability, whether or not the species normally receives it.</p>
+      <form id="universalAbilityForm" class="form">
+        <div class="field"><label>Ability</label>${abilitySearchPicker(p.ability||'','universalAbilityInput')}</div>
+        <button class="btn primary">Save Ability</button>
+      </form>
+    </section>`;
+  };
+
+  /* Rebuild the creation binder so the Ability picker behaves like the Move picker. */
+  bindPhase2Creation=function(){
+    const form=document.getElementById('dbPokemonForm');
+    if(!form)return;
+
+    const speciesPick=document.getElementById('speciesPick');
+    const abilityInput=document.getElementById('abilityPick');
+    const speciesPreview=document.getElementById('speciesPreview');
+    const naturePreview=document.getElementById('naturePreview');
+
+    function updateAbilityDetail(){
+      const detail=form.querySelector('[data-ability-search-detail]');
+      const record=searchableAbilityRecord(abilityInput?.value||'');
+      if(detail){
+        detail.innerHTML=record
+          ? `<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`
+          : '<span class="muted">Search and choose any Ability.</span>';
+      }
+    }
+
+    function updateNature(){
+      const n=natureByName(document.getElementById('naturePick').value);
+      naturePreview.innerHTML=n
+        ? `This Nature increases <strong>${esc(n.up)}</strong> one die size and decreases <strong>${esc(n.down)}</strong> one die size.${n.up===n.down?' Because both are the same stat, the changes cancel.':''}`
+        : '';
+    }
+
+    function updateSpecies(){
+      const s=SPECIES_DB[+speciesPick.value];
+      if(!s)return;
+      const adjusted=applyNature(s.stats,document.getElementById('naturePick').value);
+      speciesPreview.innerHTML=`<section class="card">
+        <strong>${esc(s.name)}</strong>
+        <p class="muted">${esc(s.types.join(' / '))} • ${esc(s.size)}</p>
+        <div class="dice-grid">${Object.entries(adjusted).map(([k,v])=>`<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div>
+        <p class="muted small">Evolution: ${esc(s.evolution||'N/A')} • Movement: ${esc(s.movement||'—')}</p>
+        <p class="muted small"><strong>Canonical Abilities:</strong> ${esc((s.abilities||[]).join(', ')||'None listed')}</p>
+      </section>`;
+      if(!abilityInput.value){
+        abilityInput.value=(s.abilities||[])[0]||'';
+        updateAbilityDetail();
+      }
+    }
+
+    speciesPick.onchange=updateSpecies;
+    document.getElementById('naturePick').onchange=()=>{updateNature();updateSpecies()};
+    abilityInput?.addEventListener('input',updateAbilityDetail);
+
+    form.querySelectorAll('.move-db-input').forEach(input=>{
+      input.addEventListener('input',()=>{
+        const detail=form.querySelector(`[data-move-detail="${input.name.replace('move','')}"]`);
+        if(detail)detail.innerHTML=moveDetailHtml(input.value);
+      });
+    });
+
+    updateNature();
+    updateSpecies();
+    updateAbilityDetail();
+
+    form.onsubmit=event=>{
+      event.preventDefault();
+      const data=Object.fromEntries(new FormData(form));
+      const species=SPECIES_DB[+data.speciesIndex];
+      if(!species)return;
+
+      const baseStats={...species.stats};
+      const stats=applyNature(baseStats,data.nature);
+      state.pokemon.push({
+        id:id('pokemon'),
+        trainerId:trainer().id,
+        species:species.name,
+        nickname:data.nickname,
+        types:species.types,
+        rank:+data.rank,
+        tn:+data.tn,
+        nature:data.nature,
+        ability:String(data.ability||'').trim(),
+        availableAbilities:[...new Set([...(species.abilities||[]),String(data.ability||'').trim()].filter(Boolean))],
+        baseStats,
+        stats,
+        evolution:species.evolution,
+        size:species.size,
+        movement:species.movement,
+        eggCycle:species.eggCycle,
+        eggGroups:species.eggGroups,
+        move1:data.move1,
+        move2:data.move2,
+        move3:data.move3,
+        move4:data.move4,
+        notes:'',
+        rankHistory:[]
+      });
+      save();
+      render();
+    };
+  };
+
+  /* Replace the detail-page binder with a simple searchable save. */
+  const previousBindAbilitySearch=bind;
+  bind=function(){
+    previousBindAbilitySearch();
+
+    const detailAbilityInput=document.getElementById('universalAbilityInput');
+    const detailBox=document.querySelector('#universalAbilityForm [data-ability-search-detail]');
+
+    detailAbilityInput?.addEventListener('input',()=>{
+      const record=searchableAbilityRecord(detailAbilityInput.value);
+      if(detailBox){
+        detailBox.innerHTML=record
+          ? `<strong>${esc(record.name)}</strong><br>${esc(record.effect||'No effect text available.')}`
+          : '<span class="muted">You may type a custom Ability name.</span>';
+      }
+    });
+
+    const form=document.getElementById('universalAbilityForm');
+    if(form){
+      form.onsubmit=event=>{
+        event.preventDefault();
+        const p=state.pokemon.find(x=>x.id===state.selectedPokemonId);
+        const ability=String(new FormData(form).get('ability')||'').trim();
+        p.ability=ability;
+        p.availableAbilities=Array.isArray(p.availableAbilities)?p.availableAbilities:[];
+        if(ability&&!p.availableAbilities.includes(ability))p.availableAbilities.push(ability);
+        p.abilityHistory=Array.isArray(p.abilityHistory)?p.abilityHistory:[];
+        p.abilityHistory.push({id:id('abilityChange'),ability,date:new Date().toISOString()});
+        if(typeof professorLogEntry==='function'){
+          professorLogEntry(`Assigned Ability: ${ability}`,p.nickname||p.species);
+        }
+        save();
+        alert(`${p.nickname||p.species} now has ${ability}.`);
+        render();
+      };
+    }
+  };
+
+  state.core=state.core||{};
+  state.core.abilityPickerPatch='Searchable Ability Dropdown';
   save();
   render();
 })();
